@@ -1,20 +1,97 @@
-# Security: Never commit environment variables
+# ==========================
+# 1. Security & Secrets (CRITICAL)
+# ==========================
+# Environment variables
 .env
 .env.local
 .env.*.local
+*.env
+
+# Private Keys & Certificates
 *.pem
 *.key
+*.pub
+*.crt
+*.cer
+id_rsa
+id_rsa.pub
 
-# IDE & OS Junk (Mac specific)
-.DS_Store
-.idea/
-.vscode/
+# Cloudflare & Tailscale specific
+cloudflared-cert.pem
+tunnel-credentials.json
+tailscale-auth.key
 
-# Build Binaries
+# Kubernetes Local Configs (Never commit cluster access)
+kubeconfig
+*.kubeconfig
+config.yaml  # Common name for k3s config
+k3s.yaml
+
+# ==========================
+# 2. Golang
+# ==========================
+# Binaries and build artifacts
 /bin/
 /dist/
-home-brain-backend  # or whatever your binary is named
+/out/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
 
-# Kubernetes Secrets (if you generate them locally)
-secrets.yaml
-k3s-config.yaml
+# Go workspace file
+go.work
+
+# ==========================
+# 3. Node.js / Javascript (for your adapters)
+# ==========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+
+# Build directories
+/build/
+/.next/
+
+# ==========================
+# 4. Data & Local Databases
+# ==========================
+# If you use SQLite for testing or Actual Budget local files
+*.db
+*.sqlite
+*.sqlite3
+/data/
+/storage/
+
+# ==========================
+# 5. OS & IDE (Mac + VSCode)
+# ==========================
+# macOS clutter
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# VSCode / JetBrains
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==========================
+# 6. DevOps & Infrastructure
+# ==========================
+# Terraform (in case you add it later)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Vagrant (just in case)
+.vagrant/
+
+# Helm Charts (if you download dependencies locally)
+charts/
