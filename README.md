@@ -2,7 +2,7 @@
 
 ![Status](https://img.shields.io/badge/Status-Active_Development-green)
 ![Tech](https://img.shields.io/badge/Stack-Golang_|_K3s_|_ArgoCD-blue)
-![Architecture](https://img.shields.io/badge/Arch-Hybrid_(ARM64/x86__64)-orange)
+![Architecture](https://img.shields.io/badge/Arch-Hybrid_(ARM64/AMD64)-orange)
 
 **HomeBrain** is an Internal Developer Platform (IDP) designed to manage, aggregate, and query personal data (Finance, Media, Infrastructure) through a unified Golang API and Local LLM interface.
 
@@ -48,7 +48,7 @@ graph TD
     GoApp --> ImmichML
     GoApp -.-> NFS
     ImmichML -.-> NFS
-````
+```
 
 ## 🛠 Tech Stack
 
@@ -79,7 +79,7 @@ multipass launch --name k3s-master \
 package_update: true
 package_upgrade: true
 runcmd:
-  - curl -fsSL [https://tailscale.com/install.sh](https://tailscale.com/install.sh) | sh
+  - curl -fsSL https://tailscale.com/install.sh | sh
 EOF
 
 # 2. Authenticate Tailscale (Manual Step)
@@ -97,7 +97,7 @@ multipass exec k3s-master -- sudo tailscale up
 TS_IP=$(multipass exec k3s-master -- tailscale ip -4)
 
 # 2. Install K3s with Network Overrides
-multipass exec k3s-master -- bash -c "curl -sfL [https://get.k3s.io](https://get.k3s.io) | INSTALL_K3S_EXEC='server \
+multipass exec k3s-master -- bash -c "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='server \
   --node-ip ${TS_IP} \
   --node-external-ip ${TS_IP} \
   --flannel-iface tailscale0 \
@@ -123,7 +123,7 @@ kubectl get nodes
 
 ## 🗺 Roadmap
 
-This project is executed in three distinct engineering phases. Progress is tracked via [GitHub Projects](https://www.google.com/search?q=https://github.com/users/YOUR_USERNAME/projects/YOUR_PROJECT_ID).
+This project is executed in three distinct engineering phases.
 
   - [x] **Phase 1: Infrastructure & GitOps** (Current)
       - [x] Provision K3s Master on Mac Mini M2.
