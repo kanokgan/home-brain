@@ -31,7 +31,7 @@ graph TD
         end
 
         subgraph "Worker Node: Windows PC (AMD64/WSL2)"
-            Ollama[Ollama (GPU Accelerated)]
+            Ollama["Ollama (GPU Accelerated)"]
             ImmichML[Immich ML Engine]
         end
     end
@@ -48,7 +48,7 @@ graph TD
     GoApp --> ImmichML
     GoApp -.-> NFS
     ImmichML -.-> NFS
-```
+````
 
 ## 🛠 Tech Stack
 
