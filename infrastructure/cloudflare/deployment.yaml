@@ -1,10 +1,9 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: cloudflared
   namespace: cloudflare
 spec:
-  replicas: 2  # High availability
   selector:
     matchLabels:
       app: cloudflared
