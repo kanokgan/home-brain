@@ -1,6 +1,6 @@
 module github.com/kanokgan/home-brain/backend
 
-go 1.24.0
+go 1.23
 
 require github.com/gin-gonic/gin v1.11.0
 
