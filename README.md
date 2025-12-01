@@ -125,12 +125,14 @@ kubectl get nodes
 
 This project is executed in three distinct engineering phases.
 
-  - [x] **Phase 1: Infrastructure & GitOps** (Current)
-      - [x] Provision K3s Master on Mac Mini M2.
-      - [ ] **NEW:** Configure Windows PC as GPU Worker Node (via WSL2/Tailscale).
-      - [ ] **NEW:** Configure Synology as NFS Storage Provider.
-      - [ ] Implement ArgoCD for automated application syncing.
-  - [ ] **Phase 2: The Aggregator Backend** (Golang/Gin)
+  - [x] **Phase 1: Infrastructure & GitOps** (✅ Complete)
+      - [x] Provision K3s Master on Mac Mini M2
+      - [x] Configure Windows PC as GPU Worker Node (via WSL2/Tailscale)
+      - [x] Implement ArgoCD for automated application syncing
+      - [ ] Configure Synology as NFS Storage Provider
+      - [ ] Setup Traefik Ingress Controller
+      - [ ] Deploy monitoring stack (Prometheus/Grafana)
+  - [ ] **Phase 2: The Aggregator Backend** (Golang/Gin) - Next
   - [ ] **Phase 3: The AI Agent** (Ollama/RAG with RTX 4060)
 
 ## 🔐 Security & Privacy

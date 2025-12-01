@@ -1,0 +1,26 @@
+# Example: Bootstrap Application
+# This is a template for deploying applications via ArgoCD
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: example-app
+  namespace: argocd
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/kanokgan/home-brain.git
+    targetRevision: main
+    path: applications/example-app  # Path to your app manifests
+    
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+    
+  syncPolicy:
+    automated:
+      prune: true      # Remove resources not in Git
+      selfHeal: true   # Sync when cluster state differs
+    syncOptions:
+    - CreateNamespace=true
