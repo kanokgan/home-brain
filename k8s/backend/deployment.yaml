@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-brain-backend
+  namespace: default
+  labels:
+    app: home-brain-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: home-brain-backend
+  template:
+    metadata:
+      labels:
+        app: home-brain-backend
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/kanokgan/home-brain-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          # Health Checks (Senior Engineers always include these)
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

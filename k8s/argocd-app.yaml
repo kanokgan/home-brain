@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: home-brain-backend
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kanokgan/home-brain.git
+    targetRevision: HEAD
+    path: k8s/backend
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  # 🔄 Automate the Sync (Self-Healing)
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
