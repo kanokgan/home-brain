@@ -95,6 +95,7 @@ multipass exec k3s-master -- sudo tailscale up
 ```bash
 # 1. Get the Tailscale IP
 TS_IP=$(multipass exec k3s-master -- tailscale ip -4)
+echo "Master IP: $TS_IP"  # Example: 100.x.x.x
 
 # 2. Install K3s with Network Overrides
 multipass exec k3s-master -- bash -c "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='server \
@@ -103,9 +104,64 @@ multipass exec k3s-master -- bash -c "curl -sfL https://get.k3s.io | INSTALL_K3S
   --flannel-iface tailscale0 \
   --disable traefik \
   --write-kubeconfig-mode 644' sh -"
+
+# 3. Get the node token for worker registration
+multipass exec k3s-master -- sudo cat /var/lib/rancher/k3s/server/node-token
+# Save this token securely - needed for worker setup
 ```
 
-### 3\. Developer Access (Host Machine)
+### 3\. GPU Worker Node Setup (Windows PC with WSL2)
+
+**Prerequisites:** WSL2 with Ubuntu 22.04 and systemd enabled
+
+```bash
+# On Windows in WSL2 Ubuntu terminal:
+
+# 1. Install Tailscale
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up --hostname=k3s-worker-gpu
+# Follow auth link and disable key expiry in Tailscale console
+
+# 2. Get Worker IP
+WORKER_IP=$(tailscale ip -4)
+echo "Worker IP: $WORKER_IP"  # Example: 100.y.y.y
+
+# 3. Install NFS client (CRITICAL for storage)
+sudo apt-get update
+sudo apt-get install -y nfs-common
+
+# 4. Join the cluster
+# Replace MASTER_IP and K3S_TOKEN with values from Step 2
+MASTER_IP="100.x.x.x"     # Your master Tailscale IP from step 2
+K3S_TOKEN="K10..."         # Your token from step 2
+
+curl -sfL https://get.k3s.io | \
+  K3S_URL="https://${MASTER_IP}:6443" \
+  K3S_TOKEN="${K3S_TOKEN}" \
+  INSTALL_K3S_EXEC="agent \
+    --node-external-ip=${WORKER_IP} \
+    --flannel-iface=tailscale0 \
+    --kubelet-arg=eviction-hard=imagefs.available<1% \
+    --kubelet-arg=eviction-hard=nodefs.available<1%" sh -
+
+# Note: WSL2-specific eviction settings required for proper disk capacity handling
+```
+
+### 4\. NFS Storage Setup (Synology NAS)
+
+**Configure NFS share on Synology:**
+
+1. Control Panel → File Services → Enable NFS
+2. Control Panel → Shared Folder → Create `k3s-data`
+3. NFS Permissions:
+   - Server: `192.168.x.x` (Your Synology LAN IP)
+   - Share path: `/volume1/k3s-data`
+   - Allowed clients: `*` or `100.64.0.0/10` (Tailscale subnet)
+   - Privilege: Read/Write
+   - Squash: Map all users to admin
+   - Enable: "Allow connections from non-privileged ports"
+
+### 5\. Developer Access (Host Machine)
 
 To control the cluster via VS Code on macOS:
 
@@ -118,7 +174,12 @@ sed -i '' "s/127.0.0.1/$(multipass exec k3s-master -- tailscale ip -4)/g" ~/.kub
 
 # 3. Test Connection
 export KUBECONFIG=~/.kube/config-homebrain
-kubectl get nodes
+kubectl get nodes -o wide
+
+# Expected output:
+# NAME             STATUS   ROLES                  AGE   VERSION
+# k3s-master       Ready    control-plane,master   ...   v1.33.6+k3s1
+# <worker-hostname> Ready    <none>                 ...   v1.33.6+k3s1
 ```
 
 ## 🗺 Roadmap
@@ -129,7 +190,7 @@ This project is executed in three distinct engineering phases.
       - [x] Provision K3s Master on Mac Mini M2
       - [x] Configure Windows PC as GPU Worker Node (via WSL2/Tailscale)
       - [x] Implement ArgoCD for automated application syncing
-      - [ ] Configure Synology as NFS Storage Provider
+      - [x] Configure Synology as NFS Storage Provider
       - [ ] Setup Traefik Ingress Controller
       - [ ] Deploy monitoring stack (Prometheus/Grafana)
   - [ ] **Phase 2: The Aggregator Backend** (Golang/Gin) - Next
