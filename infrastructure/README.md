@@ -10,6 +10,11 @@ infrastructure/
 │   ├── helm-values.yaml # Helm chart values
 │   ├── apps/            # Application manifests
 │   └── README.md
+├── cloudflare/          # Cloudflare Tunnel for external access
+│   ├── namespace.yaml
+│   ├── deployment.yaml
+│   ├── configmap.yaml
+│   └── README.md
 ├── ingress/             # Traefik ingress controller
 ├── monitoring/          # Prometheus, Grafana, Loki
 └── storage/             # NFS provisioner, PVCs
@@ -18,10 +23,11 @@ infrastructure/
 ## Deployment Order
 
 1. **ArgoCD** - GitOps engine (✅ Deployed)
-2. **Storage** - NFS provisioner for Synology
-3. **Ingress** - Traefik for external access
-4. **Monitoring** - Observability stack
-5. **Applications** - Actual services (Immich, Actual Budget, etc.)
+2. **Storage** - NFS provisioner for Synology (✅ Deployed)
+3. **Cloudflare** - Tunnel for secure external access (🚧 In Progress)
+4. **Ingress** - Traefik for external access
+5. **Monitoring** - Observability stack
+6. **Applications** - Actual services (Immich, Actual Budget, etc.)
 
 ## Prerequisites
 
