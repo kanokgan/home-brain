@@ -25,5 +25,8 @@ See the runbook: `docs/runbooks/03-cloudflare-tunnel.md`
 ## Security
 
 - All tunnel credentials are stored as Kubernetes secrets (not in Git)
+- Tunnel token stored in `cloudflare-tunnel-credentials` secret
+- Routing configuration managed via Cloudflare Dashboard (not in ConfigMap)
 - Cloudflare Access can be enabled for additional authentication
 - No inbound ports opened on home network
+- Uses HTTP/2 protocol (TCP) instead of QUIC (UDP) for better compatibility

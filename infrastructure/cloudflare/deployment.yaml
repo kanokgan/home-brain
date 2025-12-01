@@ -31,9 +31,12 @@ spec:
               name: cloudflare-tunnel-credentials
               key: tunnel-token
         livenessProbe:
-          httpGet:
-            path: /ready
-            port: 2000
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - 'wget -q -O /dev/null http://127.0.0.1:2000/ready || exit 1'
           failureThreshold: 3
           initialDelaySeconds: 20
           periodSeconds: 30
+          timeoutSeconds: 5

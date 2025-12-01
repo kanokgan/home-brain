@@ -77,41 +77,18 @@ kubectl get secret cloudflare-tunnel-credentials -n cloudflare
 
 ---
 
-## ⚙️ Step 3: Update Configuration
+## ⚙️ Step 3: Apply Kubernetes Namespace
 
-Update the tunnel ID in the ConfigMap:
+**IMPORTANT:** When using token-based tunnels, routing configuration is managed through the Cloudflare Dashboard, not ConfigMaps. The ConfigMap in this repo is kept for reference only.
 
 ```bash
 cd /Users/kanokgan/Developer/personal/home-brain
 
-# Edit the configmap
+# Apply namespace
 kubectl apply -f infrastructure/cloudflare/namespace.yaml
-
-# Create ConfigMap with your tunnel ID
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cloudflared-config
-  namespace: cloudflare
-data:
-  config.yaml: |
-    tunnel: $TUNNEL_ID
-    credentials-file: /etc/cloudflared/credentials/tunnel-token
-    metrics: 0.0.0.0:2000
-    no-autoupdate: true
-    
-    ingress:
-      # ArgoCD
-      - hostname: argocd.kanokgan.com
-        service: https://argocd-server.argocd.svc.cluster.local:443
-        originRequest:
-          noTLSVerify: true
-      
-      # Catch-all rule (required)
-      - service: http_status:404
-EOF
 ```
+
+**Note:** Skip ConfigMap creation - it's not used with token-based authentication.
 
 ---
 
@@ -140,20 +117,39 @@ INF Connection registered connIndex=1
 
 ---
 
-## 🌍 Step 5: Configure DNS in Cloudflare
+## 🌍 Step 5: Configure Tunnel Route & DNS
 
-### Via Cloudflare Dashboard (Recommended)
+### 5.1 Configure Public Hostname (Cloudflare Dashboard)
+
+**This is where routing configuration actually lives for token-based tunnels:**
+
+1. Go to **Zero Trust Dashboard** → **Networks** → **Tunnels**
+2. Click on your `homebrain-k3s` tunnel
+3. Go to **Public Hostname** tab
+4. Click **Add a public hostname**
+5. Configure:
+   - **Subdomain**: `argocd`
+   - **Domain**: `kanokgan.com`
+   - **Service Type**: `HTTP`
+   - **URL**: `argocd-server.argocd.svc.cluster.local:80`
+6. Click **Save hostname**
+
+**Important:** 
+- Use `HTTP` (not HTTPS) if ArgoCD is running in insecure mode (`server.insecure=true`)
+- Use `HTTPS` with "No TLS Verify" enabled if ArgoCD uses self-signed certificates
+- The DNS record is created automatically when you add a public hostname
+
+### 5.2 Verify DNS (Automatic)
+
+Cloudflare automatically creates the DNS record. Verify:
 
 1. Go to **Cloudflare Dashboard** → Select `kanokgan.com`
 2. Go to **DNS** → **Records**
-3. Click **Add record**
-4. Configure:
+3. You should see:
    - **Type**: `CNAME`
    - **Name**: `argocd`
    - **Target**: `<TUNNEL_ID>.cfargotunnel.com`
    - **Proxy status**: Proxied (orange cloud)
-   - **TTL**: Auto
-5. Click **Save**
 
 ### Via CLI (Alternative)
 
@@ -202,11 +198,40 @@ https://argocd.kanokgan.com
 
 ---
 
-## 🔒 Step 7: Enable Cloudflare Access (Optional but Recommended)
+## 🔧 Step 7: Configure ArgoCD for Cloudflare Access (Optional)
+
+If you want to use Cloudflare Access (Zero Trust authentication), ArgoCD must run in insecure mode since Cloudflare handles TLS termination.
+
+### 7.1 Enable ArgoCD Insecure Mode
+
+```bash
+# Configure ArgoCD to run without TLS
+kubectl patch configmap argocd-cmd-params-cm -n argocd --type merge -p '{"data":{"server.insecure":"true"}}'
+
+# Restart ArgoCD server
+kubectl rollout restart deployment argocd-server -n argocd
+
+# Wait for restart
+kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=60s
+```
+
+**Important:** After enabling insecure mode:
+1. ArgoCD listens on HTTP port 80 (not HTTPS port 443)
+2. Update the tunnel route in Cloudflare Dashboard:
+   - Go to Zero Trust → Networks → Tunnels → homebrain-k3s → Public Hostname
+   - Edit `argocd.kanokgan.com` route
+   - Change Service Type to `HTTP`
+   - Change URL to `argocd-server.argocd.svc.cluster.local:80`
+   - Remove "No TLS Verify" (not needed for HTTP)
+   - Save
+
+---
+
+## 🔒 Step 8: Enable Cloudflare Access (Optional but Recommended)
 
 Add an authentication layer before ArgoCD:
 
-### 7.1 Create Access Application
+### 8.1 Create Access Application
 
 1. Go to **Zero Trust Dashboard** → **Access** → **Applications**
 2. Click **Add an application** → **Self-hosted**
@@ -216,7 +241,7 @@ Add an authentication layer before ArgoCD:
    - **Application domain**: `argocd.kanokgan.com`
 4. Click **Next**
 
-### 7.2 Add Access Policy
+### 8.2 Add Access Policy
 
 1. **Policy name**: `Allow My Email`
 2. **Action**: Allow
@@ -226,6 +251,8 @@ Add an authentication layer before ArgoCD:
 4. Click **Next** → **Add application**
 
 Now accessing `argocd.kanokgan.com` will require authentication through Cloudflare first!
+
+**Note:** With Cloudflare Access enabled, users see a login page before reaching ArgoCD. This provides an additional security layer on top of ArgoCD's own authentication.
 
 ---
 
@@ -246,21 +273,30 @@ kubectl logs -n cloudflare -l app=cloudflared --tail=100
 # Ensure tunnel token is correct
 ```
 
-### Issue 2: 502 Bad Gateway
+### Issue 2: 502 Bad Gateway or Connection Reset
 
-**Symptoms**: Browser shows Cloudflare 502 error
+**Symptoms**: Browser shows Cloudflare 502 error or "connection reset by peer"
+
+**Common Cause**: Protocol mismatch - tunnel configured for HTTPS but ArgoCD is using HTTP (or vice versa)
 
 ```bash
-# Check ArgoCD is running
-kubectl get pods -n argocd
+# Check if ArgoCD is in insecure mode
+kubectl get configmap argocd-cmd-params-cm -n argocd -o yaml | grep insecure
 
-# Check service exists
-kubectl get svc argocd-server -n argocd
+# If server.insecure=true, ArgoCD uses HTTP on port 80
+# Test HTTP connection
+kubectl run test-http --rm -i --restart=Never --image=curlimages/curl -- \
+  curl -I http://argocd-server.argocd.svc.cluster.local:80
 
-# Test connectivity from cloudflared pod
-kubectl exec -n cloudflare deploy/cloudflared -- \
-  curl -k https://argocd-server.argocd.svc.cluster.local:443
+# If server.insecure=false or not set, ArgoCD uses HTTPS on port 443
+# Test HTTPS connection
+kubectl run test-https --rm -i --restart=Never --image=curlimages/curl -- \
+  curl -k -I https://argocd-server.argocd.svc.cluster.local:443
 ```
+
+**Solution**: Update tunnel route in Cloudflare Dashboard to match ArgoCD's protocol:
+- **Insecure mode** → Service Type: `HTTP`, URL: `argocd-server.argocd.svc.cluster.local:80`
+- **Secure mode** → Service Type: `HTTPS`, URL: `argocd-server.argocd.svc.cluster.local:443` (enable "No TLS Verify")
 
 ### Issue 3: DNS Not Resolving
 
@@ -275,7 +311,25 @@ kubectl exec -n cloudflare deploy/cloudflared -- \
 nslookup argocd.kanokgan.com 1.1.1.1
 ```
 
-### Issue 4: Certificate Errors
+### Issue 4: Pods Crash Loop - Liveness Probe Failed
+
+**Symptoms**: `kubectl get pods -n cloudflare` shows `CrashLoopBackOff`, events show "Liveness probe failed: connection refused"
+
+**Root Cause**: The metrics server listens on `127.0.0.1:2000` (localhost only), but the default httpGet probe tries to access it via the pod IP.
+
+**Solution**: Already fixed in deployment.yaml - uses `exec` command to check localhost:
+```yaml
+livenessProbe:
+  exec:
+    command:
+    - /bin/sh
+    - -c
+    - 'wget -q -O /dev/null http://127.0.0.1:2000/ready || exit 1'
+```
+
+If you see this issue, ensure you're using the latest deployment.yaml from the repo.
+
+### Issue 5: Certificate Errors
 
 **Symptoms**: SSL/TLS warnings in browser
 
@@ -307,14 +361,17 @@ nslookup argocd.kanokgan.com 1.1.1.1
 
 ## 🔄 Adding More Services
 
-To expose additional services (e.g., Grafana, Traefik):
+**With token-based tunnels**, all routing is managed through the Cloudflare Dashboard:
 
-1. Update `infrastructure/cloudflare/configmap.yaml`
-2. Add new ingress rule before the catch-all:
-   ```yaml
-   - hostname: grafana.kanokgan.com
-     service: http://grafana.monitoring.svc.cluster.local:80
-   ```
-3. Apply changes: `kubectl apply -f infrastructure/cloudflare/configmap.yaml`
-4. Restart cloudflared: `kubectl rollout restart deployment/cloudflared -n cloudflare`
-5. Add DNS CNAME record in Cloudflare for the new hostname
+1. Go to **Zero Trust Dashboard** → **Networks** → **Tunnels**
+2. Click on your `homebrain-k3s` tunnel
+3. Go to **Public Hostname** tab
+4. Click **Add a public hostname**
+5. Configure the new service:
+   - **Subdomain**: `grafana` (or your service name)
+   - **Domain**: `kanokgan.com`
+   - **Service Type**: `HTTP` or `HTTPS`
+   - **URL**: `service-name.namespace.svc.cluster.local:port`
+6. Click **Save hostname**
+
+**Note:** The ConfigMap in this repo is NOT used with token-based deployment. All routing configuration lives in Cloudflare's dashboard. DNS records are created automatically.

@@ -1,3 +1,8 @@
+# NOTE: This ConfigMap is NOT used when deploying with tunnel token.
+# When using token-based authentication, routing configuration is managed
+# through the Cloudflare Dashboard: Zero Trust > Networks > Tunnels > Public Hostname
+# This file is kept for reference only.
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -5,17 +10,17 @@ metadata:
   namespace: cloudflare
 data:
   config.yaml: |
+    # This config is NOT used with token-based deployment
+    # Configuration is managed via Cloudflare Dashboard
     tunnel: YOUR_TUNNEL_ID
-    credentials-file: /etc/cloudflared/credentials/credentials.json
+    credentials-file: /etc/cloudflared/credentials/tunnel-token
     metrics: 0.0.0.0:2000
     no-autoupdate: true
     
     ingress:
-      # ArgoCD
+      # ArgoCD (HTTP backend when using server.insecure=true)
       - hostname: argocd.kanokgan.com
-        service: https://argocd-server.argocd.svc.cluster.local:443
-        originRequest:
-          noTLSVerify: true
+        service: http://argocd-server.argocd.svc.cluster.local:80
       
       # Catch-all rule (required)
       - service: http_status:404

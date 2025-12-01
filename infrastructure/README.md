@@ -24,7 +24,7 @@ infrastructure/
 
 1. **ArgoCD** - GitOps engine (✅ Deployed)
 2. **Storage** - NFS provisioner for Synology (✅ Deployed)
-3. **Cloudflare** - Tunnel for secure external access (🚧 In Progress)
+3. **Cloudflare** - Tunnel for secure external access (✅ Deployed)
 4. **Ingress** - Traefik for external access
 5. **Monitoring** - Observability stack
 6. **Applications** - Actual services (Immich, Actual Budget, etc.)
