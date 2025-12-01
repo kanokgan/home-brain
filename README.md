@@ -16,6 +16,8 @@ The system runs on a **Hybrid-Architecture Kubernetes Cluster** (K3s), utilizing
 * **The Muscle (AI Worker):** Gaming PC (Intel i5/RTX 4060). Wakes on LAN to handle heavy AI Inference (Ollama/LLMs) and Batch Processing.
 * **The Vault (Storage):** Synology DS923+. Provides persistent NFS storage for the cluster.
 
+### Runtime Architecture
+
 ```mermaid
 graph TD
     subgraph "Public Internet"
@@ -48,6 +50,41 @@ graph TD
     GoApp --> ImmichML
     GoApp -.-> NFS
     ImmichML -.-> NFS
+```
+
+### CI/CD Pipeline
+
+```mermaid
+graph LR
+    subgraph "Dev Environment (M1 Mac)"
+        Code[Golang Code] --> Git[Push to GitHub]
+    end
+
+    subgraph "CI Pipeline (GitHub Cloud)"
+        Git --> Action[GitHub Action]
+        Action -- Build ARM64 & AMD64 --> GHCR[GitHub Container Registry]
+    end
+
+    subgraph "The Cluster (Home Network)"
+        subgraph "Control Plane (Mac Mini M2)"
+            ArgoCD[ArgoCD Controller]
+            Master[K3s Master]
+        end
+
+        subgraph "Compute Node (Windows PC)"
+            Worker[K3s GPU Worker]
+        end
+
+        subgraph "Storage (Synology NAS)"
+            NFS[(NFS Shares)]
+        end
+    end
+
+    ArgoCD -- "1. Detects Change" --> Git
+    ArgoCD -- "2. Pulls Manifest" --> Git
+    Master -- "3. Pulls Image" --> GHCR
+    Master -- "4. Deploys Pods" --> Worker
+    Worker -- "5. Persists Data" --> NFS
 ```
 
 ## 🛠 Tech Stack
