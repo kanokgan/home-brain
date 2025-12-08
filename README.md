@@ -57,6 +57,41 @@ flowchart TB
     Workloads -.-> NFS
 ```
 
+### Network Architecture
+
+```mermaid
+---
+config:
+  layout: dagre
+---
+flowchart TB
+ subgraph ISP_Layer["ISP Network (192.168.1.0/24)"]
+        ISPRouter["True/Humax Router<br>Gateway: 192.168.1.1"]
+  end
+ subgraph Home_Core["Home Network (192.168.0.0/24)"]
+        TPLink["TP-Link AXE5400<br>WAN IP: 192.168.1.10<br>LAN Gateway: 192.168.0.1"]
+  end
+    Internet["Public Internet"] --> CloudflareCDN["Cloudflare CDN/Edge"] & ISPRouter
+    ISPRouter -- "Static WAN Link<br>(192.168.1.10)" --> TPLink
+    TPLink -- LAN --> MasterNode["k3s-master<br>Mac Mini M2<br>LAN: 192.168.0.x<br>TS: 100.x.x.x"] & WorkerGPU["k3s-worker-gpu<br>Windows PC<br>LAN: 192.168.0.x<br>TS: 100.x.x.x"] & WorkerExtreme["k3s-worker-extreme<br>Ubuntu Laptop<br>LAN: 192.168.0.x<br>TS: 100.x.x.x"] & Synology["Synology NAS<br>LAN: 192.168.0.x<br>NFS Server"]
+    CloudflareCDN -- Cloudflare Tunnel<br>(Bypasses Double NAT) --> MasterNode
+    TailscaleRelay["Tailscale Mesh"] -. "WireGuard Overlay<br>(100.x.x.x)" .- MasterNode & WorkerGPU & WorkerExtreme
+    MasterNode <-- K3s Traffic --> WorkerGPU & WorkerExtreme
+    WorkerGPU <-- K3s Traffic --> WorkerExtreme
+    MasterNode -- NFS Storage --> Synology
+    WorkerGPU -- NFS Storage --> Synology
+    WorkerExtreme -- NFS Storage --> Synology
+
+    style CloudflareCDN fill:#ff9800
+    style ISPRouter fill:#e0e0e0,stroke:#333,stroke-dasharray: 5 5
+    style TPLink fill:#42a5f5,color:white
+    style MasterNode fill:#e1f5ff
+    style WorkerGPU fill:#fff4e1
+    style WorkerExtreme fill:#fff4e1
+    style Synology fill:#e8f5e9
+    style TailscaleRelay fill:#9c27b0
+```
+
 ### CI/CD Pipeline
 
 ```mermaid
