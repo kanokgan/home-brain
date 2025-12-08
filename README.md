@@ -152,7 +152,7 @@ For detailed infrastructure setup instructions, see the [Infrastructure Runbook]
 
 For step-by-step instructions with troubleshooting, refer to:
 - [RB-001: Phase 1 Infrastructure Setup](docs/runbooks/01-infrastructure.md)
-- [RB-003: Cloudflare Tunnel Setup](docs/runbooks/02-cloudflare-tunnel.md)
+- [RB-002: Cloudflare Tunnel Setup](docs/runbooks/02-cloudflare-tunnel.md)
 
 ## Roadmap
 
