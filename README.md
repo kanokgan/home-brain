@@ -19,37 +19,42 @@ The system runs on a **Hybrid-Architecture Kubernetes Cluster** (K3s), utilizing
 ### Runtime Architecture
 
 ```mermaid
-graph TD
-    subgraph "Public Internet"
-        CF[Cloudflare Tunnel]
-        TS[Tailscale Mesh]
-    end
-
-    subgraph "Cluster: K3s Hybrid"
-        subgraph "Master Node: Mac Mini M2 (ARM64)"
-            Ingress[Traefik Ingress]
-            GoApp[Golang Aggregator API]
-            Argocd[ArgoCD]
-        end
-
-        subgraph "Worker Node: Windows PC (AMD64/WSL2)"
-            Ollama["Ollama (GPU Accelerated)"]
-            ImmichML[Immich ML Engine]
-        end
-    end
-
-    subgraph "Storage Appliance"
-        Synology[Synology DS923+]
-        NFS[(NFS Shares)]
-    end
-
-    User((User)) --> CF --> Ingress
-    User --> TS --> Ingress
+flowchart TB
+ subgraph subGraph0["Public Internet"]
+        CF["Cloudflare Tunnel"]
+        TS["Tailscale Mesh"]
+  end
+ subgraph subGraph1["Master Node: Mac Mini M2 (ARM64)"]
+        Ingress["Traefik Ingress"]
+        GoApp["Golang Aggregator API"]
+        Argocd["ArgoCD"]
+        LocalSSD[("Local NVMe SSD")]
+  end
+ subgraph subGraph2["Worker Node 1: Windows PC (AMD64/WSL2)"]
+        Ollama["Ollama (GPU Accelerated)"]
+  end
+ subgraph subGraph3["Worker Node 2: Ubuntu Extreme (AMD64)"]
+        ImmichML["Immich ML Engine"]
+        Workloads["Heavy Workloads"]
+  end
+ subgraph subGraph4["Cluster: K3s Hybrid"]
+        subGraph1
+        subGraph2
+        subGraph3
+  end
+ subgraph subGraph5["Storage Appliance"]
+        Synology["Synology DS923+"]
+        NFS[("NFS Shares")]
+  end
+    User(("User")) --> CF & TS
+    CF --> Ingress
+    TS --> Ingress
     Ingress --> GoApp
-    GoApp --> Ollama
-    GoApp --> ImmichML
+    GoApp --> Ollama & ImmichML & LocalSSD
     GoApp -.-> NFS
+    Argocd -.-> NFS
     ImmichML -.-> NFS
+    Workloads -.-> NFS
 ```
 
 ### CI/CD Pipeline
