@@ -151,7 +151,7 @@ For detailed infrastructure setup instructions, see the [Infrastructure Runbook]
 5. Setup external access (Cloudflare Tunnel)
 
 For step-by-step instructions with troubleshooting, refer to:
-- [RB-001: Phase 1 Infrastructure Setup](docs/runbooks/01-infrastructure.md)
+- [RB-001: Infrastructure Setup](docs/runbooks/01-infrastructure.md)
 - [RB-002: Cloudflare Tunnel Setup](docs/runbooks/02-cloudflare-tunnel.md)
 
 ## Roadmap
