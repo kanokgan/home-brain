@@ -141,7 +141,7 @@ graph LR
 
 ## Quick Start
 
-For detailed infrastructure setup instructions, see the [Infrastructure Runbook](docs/runbooks/01-phase-1-infrastructure.md).
+For detailed infrastructure setup instructions, see the [Infrastructure Runbook](docs/runbooks/01-infrastructure.md).
 
 **TL;DR:**
 1. Provision K3s master on Mac Mini M2 (via Multipass)
@@ -151,8 +151,8 @@ For detailed infrastructure setup instructions, see the [Infrastructure Runbook]
 5. Setup external access (Cloudflare Tunnel)
 
 For step-by-step instructions with troubleshooting, refer to:
-- [RB-001: Phase 1 Infrastructure Setup](docs/runbooks/01-phase-1-infrastructure.md)
-- [RB-003: Cloudflare Tunnel Setup](docs/runbooks/03-cloudflare-tunnel.md)
+- [RB-001: Phase 1 Infrastructure Setup](docs/runbooks/01-infrastructure.md)
+- [RB-003: Cloudflare Tunnel Setup](docs/runbooks/02-cloudflare-tunnel.md)
 
 ## Roadmap
 
