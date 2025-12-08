@@ -100,6 +100,41 @@ curl -sfL https://get.k3s.io | \
 
 **Manual:** Disable key expiry in Tailscale Admin Console for `k3s-worker-extreme`.
 
+**Enable GPU support (X1 has GTX 1650 Mobile):**
+```bash
+# Install NVIDIA driver
+sudo apt-get update
+sudo apt-get install -y nvidia-driver-535
+
+# Install NVIDIA Container Toolkit
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit libnvidia-ml-dev
+
+# Configure containerd
+sudo nvidia-ctk runtime configure --runtime=containerd --config=/var/lib/rancher/k3s/agent/etc/containerd/config.toml
+sudo systemctl restart k3s-agent
+
+# Verify driver
+nvidia-smi
+```
+
+On your Mac, install GPU Operator:
+```bash
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+helm install gpu-operator nvidia/gpu-operator \
+  --namespace gpu-operator \
+  --create-namespace \
+  --set driver.enabled=false \
+  --set toolkit.enabled=false
+
+# Verify GPU detected
+kubectl get node k3s-worker-extreme -o json | jq '.status.capacity."nvidia.com/gpu"'
+```
+
 ## Step 4: NFS Storage (Synology DS923+)
 
 **Synology DSM Manual Steps:**
