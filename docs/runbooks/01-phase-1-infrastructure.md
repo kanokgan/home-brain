@@ -5,8 +5,8 @@
 | **ID** | RB-001 |
 | **Status** | Active - Tested & Working |
 | **Maintainer** | @Kanokgan |
-| **Last Updated** | 2025-12-01 |
-| **Objective** | Provision a K3s Control Plane (Mac/ARM64) and GPU Worker Node (Windows/WSL2) with external NFS Storage. |
+| **Last Updated** | 2025-12-08 |
+| **Objective** | Provision a K3s Control Plane (Mac/ARM64), GPU Worker Node (Windows/WSL2), and Compute Worker Node (Lenovo X1 Extreme Gen2) with external NFS Storage. |
 | **K3s Version** | v1.33.6+k3s1 |
 
 ---
@@ -176,18 +176,91 @@ sudo systemctl status k3s-agent
 
 -----
 
-## 🗄 Step 3: Configure Storage (Synology NAS)
+## 💻 Step 3: Provision Compute Worker (Lenovo X1 Extreme Gen2)
+
+**Context:** The Lenovo X1 Extreme Gen2 serves as a compute worker for CPU-intensive workloads running Ubuntu 22.04 bare metal.
+
+### 3.1 Prepare Ubuntu System
+
+Ensure Ubuntu 22.04 is installed with systemd enabled.
+
+```bash
+# Verify systemd is running
+systemctl --version
+```
+
+### 3.2 Configure Networking (Tailscale)
+
+Install Tailscale and connect to the mesh network.
+
+```bash
+# 1. Install Tailscale
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# 2. Authenticate
+sudo tailscale up --hostname=k3s-worker-extreme
+
+# 3. Get IP and verify connectivity
+WORKER_IP=$(tailscale ip -4)
+echo "Worker IP: $WORKER_IP"
+
+# 4. Test connection to master
+ping -c 3 $MASTER_IP
+```
+
+> **Manual Action:** Go to Tailscale Admin Console → Machines → `k3s-worker-extreme` → **"Disable Key Expiry"**.
+
+### 3.3 Install NFS Client (CRITICAL)
+
+**This step is essential for pods to mount NFS volumes from Synology.**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nfs-common
+
+# Verify NFS is available
+systemctl status rpc-statd
+```
+
+### 3.4 Join Cluster
+
+Run this on the Lenovo X1 Extreme Gen2:
+
+```bash
+# Variables (Replace with actual values from Step 1)
+MASTER_IP="100.x.x.x"      # Your master Tailscale IP from step 1.2
+NODE_TOKEN="K10..."        # Your token from step 1.4
+WORKER_IP=$(tailscale ip -4)    # Already set from step 3.2
+
+# Install K3s Agent
+curl -sfL https://get.k3s.io | \
+  K3S_URL="https://${MASTER_IP}:6443" \
+  K3S_TOKEN="${NODE_TOKEN}" \
+  INSTALL_K3S_EXEC="agent \
+    --node-external-ip=${WORKER_IP} \
+    --flannel-iface=tailscale0" sh -
+
+# Wait for agent to start
+sleep 10
+
+# Check status
+sudo systemctl status k3s-agent
+```
+
+-----
+
+## 🗄 Step 4: Configure Storage (Synology NAS)
 
 **Context:** The Synology DS923+ serves as the persistent storage layer (NFS) for the cluster.
 
-### 3.1 Enable NFS Service
+### 4.1 Enable NFS Service
 
 1.  Log into Synology DSM.
 2.  Go to **Control Panel** -\> **File Services** -\> **NFS**.
 3.  Check **Enable NFS Service**.
 4.  Set **Maximum NFS protocol** to `NFSv4.1`.
 
-### 3.2 Create Shared Folder
+### 4.2 Create Shared Folder
 
 1.  Go to **Control Panel** -\> **Shared Folder**.
 2.  Create a new folder named `k3s-data`.
@@ -198,7 +271,7 @@ sudo systemctl status k3s-agent
       * **Security:** `sys`.
       * **Tick:** Allow connections from non-privileged ports.
 
-### 3.3 Install NFS Provisioner
+### 4.3 Install NFS Provisioner
 
 Deploy the nfs-subdir-external-provisioner to enable dynamic PVC creation:
 
@@ -219,7 +292,7 @@ kubectl get pods -n nfs-storage
 kubectl get storageclass
 ```
 
-### 3.4 Test NFS Storage
+### 4.4 Test NFS Storage
 
 Create a test PVC to verify NFS is working:
 
@@ -247,9 +320,9 @@ kubectl delete pvc test-nfs
 
 -----
 
-## 🧪 Step 4: Verification & Access
+## 🧪 Step 5: Verification & Access
 
-### 4.1 Configure Host Access (Mac Terminal)
+### 5.1 Configure Host Access (Mac Terminal)
 
 Pull the kubeconfig to your host to manage the cluster via VS Code / Lens.
 
@@ -265,19 +338,20 @@ export KUBECONFIG=~/.kube/config-homebrain
 kubectl get nodes -o wide
 ```
 
-### 4.2 Success Criteria
+### 5.2 Success Criteria
 
 ✅ Output should look like this:
 
 ```text
-NAME             STATUS   ROLES                  AGE   VERSION         INTERNAL-IP   OS-IMAGE
-k3s-master       Ready    control-plane,master   1d    v1.33.6+k3s1    100.x.x.x     Ubuntu 22.04.5 LTS
-<windows-hostname>   Ready    <none>             2h    v1.33.6+k3s1    100.y.y.y     Ubuntu 22.04.5 LTS
+NAME                   STATUS   ROLES                  AGE   VERSION         INTERNAL-IP   OS-IMAGE
+k3s-master             Ready    control-plane,master   1d    v1.33.6+k3s1    100.x.x.x     Ubuntu 22.04.5 LTS
+<windows-hostname>     Ready    <none>                 2h    v1.33.6+k3s1    100.y.y.y     Ubuntu 22.04.5 LTS
+k3s-worker-extreme     Ready    <none>                 1h    v1.33.6+k3s1    100.z.z.z     Ubuntu 22.04.5 LTS
 ```
 
 **Note:** The worker node hostname will be your Windows PC hostname (e.g., `tor-homepc`), not `k3s-worker-gpu`.
 
-### 4.3 Verify Storage
+### 5.3 Verify Storage
 
 ```bash
 # Check NFS provisioner is running
