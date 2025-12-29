@@ -1,0 +1,40 @@
+---
+# Example: Read-only service account for applications that only need to read config
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-readonly
+  namespace: default
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: readonly-role
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-readonly-binding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: app-readonly
+  namespace: default
+roleRef:
+  kind: Role
+  name: readonly-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Example: Service account with no permissions for most apps
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-minimal
+  namespace: default
+automountServiceAccountToken: false

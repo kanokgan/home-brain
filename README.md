@@ -10,12 +10,10 @@ It transforms a standard Home Lab into a production-grade, Cloud-Native environm
 
 ## Architecture
 
-The system runs on a **Hybrid-Architecture Kubernetes Cluster** (K3s), utilizing the **"Brain & Muscle"** pattern to optimize for power efficiency and AI performance:
+The system runs on a **Single-Node K3s Cluster** optimized for self-hosted applications with GPU acceleration:
 
-* **The Brain (Control Plane):** Mac Mini M2 (ARM64). Runs 24/7, handling the API, Orchestration, and lightweight apps. Low power consumption (~5W).
-* **The Muscle (GPU Worker):** Gaming PC (Intel i5/RTX 4060). Wakes on LAN to handle heavy AI Inference (Ollama/LLMs) and GPU-accelerated workloads.
-* **The Workhorse (Compute Worker):** Lenovo X1 Extreme Gen2 (Intel i7/32GB RAM). Runs Ubuntu bare metal for CPU-intensive workloads and Immich ML processing.
-* **The Vault (Storage):** Synology DS923+. Provides persistent NFS storage for the cluster.
+* **K3s Master Node:** Lenovo X1 Extreme Gen2 (Intel i7-9750H/32GB RAM/NVIDIA GTX 1650). Ubuntu 24.04 LTS bare metal running K3s v1.33.6. Handles all workloads with GPU acceleration for ML tasks.
+* **Storage:** 1.9TB local NVMe SSD for high-performance storage. NAS (Synology DS923+) mounted via SMB for external libraries and backups.
 
 ### Runtime Architecture
 
@@ -25,46 +23,33 @@ flowchart TB
         CF["Cloudflare Tunnel"]
         TS["Tailscale Mesh"]
   end
- subgraph subGraph1["Master Node: Mac Mini M2 (ARM64)"]
-        Ingress["Traefik Ingress"]
-        GoApp["Golang Aggregator API"]
-        Argocd["ArgoCD"]
-        LocalSSD[("Local NVMe SSD")]
+ subgraph subGraph1["K3s Single Node Cluster"]
+        subgraph subGraph2["k3s-master: Lenovo X1 Extreme Gen2"]
+            Ingress["Traefik Ingress"]
+            Immich["Immich Server"]
+            ImmichML["Immich ML (GPU)"]
+            Postgres["PostgreSQL"]
+            Redis["Redis"]
+            LocalNVMe[("Local NVMe 1.9TB")]
+        end
   end
- subgraph subGraph2["Worker Node 1: Windows PC (AMD64/WSL2)"]
-        Ollama["Ollama (GPU Accelerated)"]
-  end
- subgraph subGraph3["Worker Node 2: Lenovo X1 Extreme Gen2 (AMD64)"]
-        ImmichML["Immich ML Engine"]
-        Workloads["CPU-Intensive Workloads"]
-  end
- subgraph subGraph4["Cluster: K3s Hybrid"]
-        subGraph1
-        subGraph2
-        subGraph3
-  end
- subgraph subGraph5["Storage Appliance"]
-        Synology["Synology DS923+"]
-        NFS[("NFS Shares")]
+ subgraph subGraph3["Storage"]
+        NAS["Synology DS923+ NAS"]
+        SMB[("SMB Shares")]
   end
     User(("User")) --> CF & TS
     CF --> Ingress
     TS --> Ingress
-    Ingress --> GoApp
-    GoApp --> Ollama & ImmichML & LocalSSD
-    GoApp -.-> NFS
-    Argocd -.-> NFS
-    ImmichML -.-> NFS
-    Workloads -.-> NFS
+    Ingress --> Immich
+    Immich --> ImmichML & Postgres & Redis
+    Immich --> LocalNVMe
+    Immich -.-> SMB
+    ImmichML -.-> SMB
 ```
 
 ### Network Architecture
 
 ```mermaid
----
-config:
-  layout: dagre
----
 flowchart TB
  subgraph ISP_Layer["ISP Network (192.168.1.0/24)"]
         ISPRouter["True/Humax Router<br>Gateway: 192.168.1.1"]
@@ -74,22 +59,16 @@ flowchart TB
   end
     Internet["Public Internet"] --> CloudflareCDN["Cloudflare CDN/Edge"] & ISPRouter
     ISPRouter -- "Static WAN Link<br>(192.168.1.10)" --> TPLink
-    TPLink -- LAN --> MasterNode["k3s-master<br>Mac Mini M2<br>LAN: 192.168.0.x<br>TS: 100.x.x.x"] & WorkerGPU["k3s-worker-gpu<br>Windows PC<br>LAN: 192.168.0.x<br>TS: 100.x.x.x"] & WorkerExtreme["k3s-worker-extreme<br>Lenovo X1 Extreme Gen2<br>LAN: 192.168.0.x<br>TS: 100.x.x.x"] & Synology["Synology NAS<br>LAN: 192.168.0.x<br>NFS Server"]
-    CloudflareCDN -- Cloudflare Tunnel<br>(Bypasses Double NAT) --> MasterNode
-    TailscaleRelay["Tailscale Mesh"] -. "WireGuard Overlay<br>(100.x.x.x)" .- MasterNode & WorkerGPU & WorkerExtreme
-    MasterNode <-- K3s Traffic --> WorkerGPU & WorkerExtreme
-    WorkerGPU <-- K3s Traffic --> WorkerExtreme
-    MasterNode -- NFS Storage --> Synology
-    WorkerGPU -- NFS Storage --> Synology
-    WorkerExtreme -- NFS Storage --> Synology
+    TPLink -- LAN --> K3sMaster["k3s-master<br>Lenovo X1 Extreme Gen2<br>LAN: 192.168.0.206<br>TS: 100.81.236.27"] & NAS["Synology DS923+ NAS<br>LAN: 192.168.0.x<br>TS: 100.77.209.53"]
+    CloudflareCDN -- Cloudflare Tunnel<br>(Planned) --> K3sMaster
+    TailscaleRelay["Tailscale Mesh"] -. "WireGuard Overlay<br>(100.x.x.x)" .- K3sMaster & NAS
+    K3sMaster -- SMB Storage --> NAS
 
     style CloudflareCDN fill:#ff9800
     style ISPRouter fill:#e0e0e0,stroke:#333,stroke-dasharray: 5 5
     style TPLink fill:#42a5f5,color:white
-    style MasterNode fill:#e1f5ff
-    style WorkerGPU fill:#fff4e1
-    style WorkerExtreme fill:#fff4e1
-    style Synology fill:#e8f5e9
+    style K3sMaster fill:#e1f5ff
+    style NAS fill:#e8f5e9
     style TailscaleRelay fill:#9c27b0
 ```
 
@@ -98,57 +77,43 @@ flowchart TB
 ```mermaid
 graph LR
     subgraph "Dev Environment (M1 Mac)"
-        Code[Golang Code] --> Git[Push to GitHub]
+        Code[Configuration] --> Git[Push to GitHub]
     end
 
-    subgraph "CI Pipeline (GitHub Cloud)"
-        Git --> Action[GitHub Action]
-        Action -- Build ARM64 & AMD64 --> GHCR[GitHub Container Registry]
+    subgraph "GitOps (Planned)"
+        Git --> ArgoCD[ArgoCD]
     end
 
-    subgraph "The Cluster (Home Network)"
-        subgraph "Control Plane (Mac Mini M2)"
-            ArgoCD[ArgoCD Controller]
-            Master[K3s Master]
-        end
-
-        subgraph "Compute Node (Windows PC)"
-            Worker[K3s GPU Worker]
-        end
-
-        subgraph "Storage (Synology NAS)"
-            NFS[(NFS Shares)]
-        end
+    subgraph "K3s Cluster (k3s-master)"
+        ArgoCD -- "Sync Manifests" --> K3s[K3s Control Plane]
+        K3s -- "Deploy Pods" --> Apps[Applications]
+        Apps -- "Persist Data" --> Storage[(Local NVMe + NAS)]
     end
-
-    ArgoCD -- "1. Detects Change" --> Git
-    ArgoCD -- "2. Pulls Manifest" --> Git
-    Master -- "3. Pulls Image" --> GHCR
-    Master -- "4. Deploys Pods" --> Worker
-    Worker -- "5. Persists Data" --> NFS
 ```
 
 ## Tech Stack
 
 | Domain | Technology | Rationale |
 | :--- | :--- | :--- |
-| **Orchestration** | **K3s** | Lightweight Kubernetes distribution suitable for hybrid architectures. |
-| **GitOps** | **ArgoCD** | Declarative continuous delivery; "Cluster as Code." |
-| **Backend** | **Golang** | High-concurrency API gateway to aggregate disparate services. |
-| **AI / ML** | **Ollama + NVIDIA** | Leveraging RTX 4060 (Tensor Cores) for fast local LLM inference. |
-| **Networking** | **Tailscale** | Zero-trust Mesh VPN for secure Node-to-Node communication. |
-| **Storage** | **NFS (Synology)** | Decoupled storage layer for persistent volumes. |
+| **Orchestration** | **K3s** | Lightweight Kubernetes distribution for single-node deployment. |
+| **Applications** | **Immich** | Self-hosted photo management with GPU-accelerated ML (face recognition, CLIP embeddings). |
+| **AI / ML** | **CUDA + NVIDIA GTX 1650** | GPU acceleration for machine learning workloads. |
+| **Networking** | **Tailscale** | Zero-trust Mesh VPN for secure remote access. |
+| **Ingress** | **Traefik** | LoadBalancer ingress controller for HTTP routing. |
+| **Storage** | **Local NVMe + SMB** | 1.9TB local NVMe for hot data, NAS for external libraries and backups. |
 
 ## Quick Start
 
 For detailed infrastructure setup instructions, see the [Infrastructure Runbook](docs/runbooks/01-infrastructure.md).
 
-**TL;DR:**
-1. Provision K3s master on Mac Mini M2 (via Multipass)
-2. Join GPU worker node (Windows PC with RTX 4060)
-3. Join compute worker node (Lenovo X1 Extreme Gen2)
-4. Configure NFS storage (Synology DS923+)
-5. Setup external access (Cloudflare Tunnel)
+**Current Deployment:**
+1. ✅ K3s v1.33.6 on Ubuntu 24.04 LTS (Lenovo X1 Extreme Gen2)
+2. ✅ NVIDIA GPU support with Container Toolkit and device plugin
+3. ✅ Immich photo management deployed with GPU-accelerated ML
+4. ✅ 514GB production data migrated from Docker
+5. ✅ Traefik ingress (http://immich.home.local)
+6. ⏳ Tailscale sidecar for remote access (immich.dove-komodo.ts.net)
+7. ⏳ Cloudflare tunnel (immich.kanokgan.com)
 
 For step-by-step instructions with troubleshooting, refer to:
 - [RB-001: Infrastructure Setup](docs/runbooks/01-infrastructure.md)
@@ -156,18 +121,28 @@ For step-by-step instructions with troubleshooting, refer to:
 
 ## Roadmap
 
-This project is executed in three distinct engineering phases.
+This project is executed in distinct engineering phases.
 
-  - [x] **Phase 1: Infrastructure & GitOps** (✅ Complete)
-      - [x] Provision K3s Master on Mac Mini M2
-      - [x] Configure Windows PC as GPU Worker Node (via WSL2/Tailscale)
-      - [x] Configure Lenovo X1 Extreme Gen2 as Compute Worker Node
-      - [x] Implement ArgoCD for automated application syncing
-      - [x] Configure Synology as NFS Storage Provider
-      - [ ] Setup Traefik Ingress Controller
+  - [x] **Phase 1: Infrastructure & Core Services** (✅ Complete)
+      - [x] Provision K3s single-node cluster on Ubuntu 24.04
+      - [x] Configure NVIDIA GPU support (GTX 1650)
+      - [x] Deploy Traefik ingress controller
+      - [x] Configure Synology NAS as SMB storage
+      - [x] Setup security: Pod Security Standards, RBAC, Network Policies
+      - [x] Deploy Immich with GPU-accelerated ML
+      - [x] Migrate 514GB production data from Docker
+      - [ ] Complete Tailscale remote access (immich.dove-komodo.ts.net)
+      - [ ] Setup Cloudflare tunnel (immich.kanokgan.com)
       - [ ] Deploy monitoring stack (Prometheus/Grafana)
-  - [ ] **Phase 2: The Aggregator Backend** (Golang/Gin) - Next
-  - [ ] **Phase 3: The AI Agent** (Ollama/RAG with RTX 4060)
+      - [ ] Implement automated backups to NAS
+  - [ ] **Phase 2: GitOps & Automation** - Next
+      - [ ] Deploy ArgoCD for GitOps workflow
+      - [ ] Setup automated image updates
+      - [ ] Implement Infrastructure as Code for all services
+  - [ ] **Phase 3: Additional Services**
+      - [ ] Deploy Ollama for local LLM inference
+      - [ ] Add financial tracking (YNAB alternative)
+      - [ ] Build Golang aggregator API
 
 ## Security & Privacy
 

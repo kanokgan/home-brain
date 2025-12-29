@@ -14,6 +14,7 @@ spec:
       labels:
         name: nvidia-device-plugin-ds
     spec:
+      runtimeClassName: nvidia
       tolerations:
       - key: nvidia.com/gpu
         operator: Exists
@@ -25,21 +26,25 @@ spec:
         env:
           - name: FAIL_ON_INIT_ERROR
             value: "false"
+          - name: NVIDIA_MIG_MONITOR_DEVICES
+            value: "all"
+          - name: PASS_DEVICE_SPECS
+            value: "true"
         securityContext:
-          allowPrivilegeEscalation: false
+          allowPrivilegeEscalation: true
           capabilities:
-            drop: ["ALL"]
+            add: ["SYS_ADMIN"]
         volumeMounts:
         - name: device-plugin
           mountPath: /var/lib/kubelet/device-plugins
-        - name: dev
-          mountPath: /dev
+        - name: host-root
+          mountPath: /host
       volumes:
       - name: device-plugin
         hostPath:
           path: /var/lib/kubelet/device-plugins
-      - name: dev
+      - name: host-root
         hostPath:
-          path: /dev
+          path: /
       nodeSelector:
         nvidia.com/gpu: "true"

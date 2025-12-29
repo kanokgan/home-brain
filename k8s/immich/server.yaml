@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-server
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-server
+  template:
+    metadata:
+      labels:
+        app: immich-server
+    spec:
+      serviceAccountName: immich
+      containers:
+      - name: tailscale
+        image: tailscale/tailscale:latest
+        env:
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: TS_AUTHKEY
+        - name: TS_HOSTNAME
+          value: "immich"
+        - name: TS_STATE_DIR
+          value: "/var/lib/tailscale"
+        - name: TS_USERSPACE
+          value: "true"
+        - name: TS_SERVE_CONFIG
+          value: "/config/serve.json"
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        volumeMounts:
+        - name: tailscale-state
+          mountPath: /var/lib/tailscale
+        - name: tailscale-config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      - name: immich-server
+        image: ghcr.io/immich-app/immich-server:release
+        ports:
+        - containerPort: 2283
+        env:
+        - name: IMMICH_MACHINE_LEARNING_ENABLED
+          value: "true"
+        - name: IMMICH_PORT
+          value: "2283"
+        envFrom:
+        - configMapRef:
+            name: immich-config
+        - secretRef:
+            name: immich-secrets
+        volumeMounts:
+        - name: library
+          mountPath: /usr/src/app/upload
+        - name: camera-uploads
+          mountPath: /CameraUploads
+          readOnly: true
+        - name: jongdee-drive
+          mountPath: /JongdeeDrive
+          readOnly: true
+        - name: por-drive
+          mountPath: /PorDrive
+          readOnly: true
+        - name: poon-drive
+          mountPath: /PoonDrive
+          readOnly: true
+        - name: churin-drive
+          mountPath: /ChurinDrive
+          readOnly: true
+        - name: orawan-drive
+          mountPath: /OrawanDrive
+          readOnly: true
+        - name: ipcamera
+          mountPath: /IPCcamera
+          readOnly: true
+        - name: kanokgan-drive
+          mountPath: /KanokganDrive
+          readOnly: true
+        - name: nrop
+          mountPath: /Nrop
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+      volumes:
+      - name: tailscale-state
+        emptyDir: {}
+      - name: tailscale-config
+        configMap:
+          name: tailscale-serve-config
+      - name: library
+        persistentVolumeClaim:
+          claimName: immich-library-pvc
+      - name: camera-uploads
+        hostPath:
+          path: /mnt/CameraUploads
+          type: Directory
+      - name: jongdee-drive
+        hostPath:
+          path: /mnt/JongdeeDrive
+          type: Directory
+      - name: por-drive
+        hostPath:
+          path: /mnt/PorDrive
+          type: Directory
+      - name: poon-drive
+        hostPath:
+          path: /mnt/PoonDrive
+          type: Directory
+      - name: churin-drive
+        hostPath:
+          path: /mnt/ChurinDrive
+          type: Directory
+      - name: orawan-drive
+        hostPath:
+          path: /mnt/OrawanDrive
+          type: Directory
+      - name: ipcamera
+        hostPath:
+          path: /mnt/IPCamera
+          type: Directory
+      - name: kanokgan-drive
+        hostPath:
+          path: /mnt/KanokganDrive
+          type: Directory
+      - name: nrop
+        hostPath:
+          path: /mnt/Nrop
+          type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-server
+  namespace: immich
+spec:
+  selector:
+    app: immich-server
+  ports:
+  - port: 80
+    targetPort: 2283

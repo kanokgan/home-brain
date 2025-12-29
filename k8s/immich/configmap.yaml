@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immich-config
+  namespace: immich
+data:
+  DB_HOSTNAME: immich-postgres
+  DB_USERNAME: immich
+  DB_DATABASE_NAME: immich
+  REDIS_HOSTNAME: immich-redis
+  IMMICH_WEB_URL: http://immich.home.local
+  IMMICH_SERVER_URL: http://immich.home.local/api
+  IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
