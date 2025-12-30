@@ -14,7 +14,39 @@ spec:
         app: immich-server
     spec:
       serviceAccountName: immich
+      automountServiceAccountToken: true
       containers:
+      - name: tailscale
+        image: tailscale/tailscale:latest
+        env:
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: TS_AUTHKEY
+        - name: TS_HOSTNAME
+          value: "immich"
+        - name: TS_STATE_DIR
+          value: "/var/lib/tailscale"
+        - name: TS_USERSPACE
+          value: "true"
+        - name: TS_SERVE_CONFIG
+          value: "/config/serve.json"
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        volumeMounts:
+        - name: tailscale-state
+          mountPath: /var/lib/tailscale
+        - name: tailscale-config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
       - name: immich-server
         image: ghcr.io/immich-app/immich-server:release
         ports:
@@ -67,6 +99,11 @@ spec:
             memory: "2Gi"
             cpu: "2000m"
       volumes:
+      - name: tailscale-state
+        emptyDir: {}
+      - name: tailscale-config
+        configMap:
+          name: tailscale-serve-config
       - name: library
         persistentVolumeClaim:
           claimName: immich-library-pvc

@@ -112,18 +112,19 @@ For detailed infrastructure setup instructions, see the [Infrastructure Runbook]
 3. ✅ Immich photo management deployed with GPU-accelerated ML
 4. ✅ 514GB production data migrated from Docker
 5. ✅ Traefik ingress (http://immich.home.local)
-6. ⏳ Tailscale sidecar for remote access (immich.dove-komodo.ts.net)
+6. ✅ Tailscale sidecar for remote access (https://immich.dove-komodo.ts.net)
 7. ⏳ Cloudflare tunnel (immich.kanokgan.com)
 
 For step-by-step instructions with troubleshooting, refer to:
 - [RB-001: Infrastructure Setup](docs/runbooks/01-infrastructure.md)
 - [RB-002: Cloudflare Tunnel Setup](docs/runbooks/02-cloudflare-tunnel.md)
+- [RB-003: Immich Deployment](docs/runbooks/03-immich-deployment.md)
 
 ## Roadmap
 
 This project is executed in distinct engineering phases.
 
-  - [x] **Phase 1: Infrastructure & Core Services** (✅ Complete)
+  - [x] **Phase 1: Infrastructure & Core Services** (90% Complete)
       - [x] Provision K3s single-node cluster on Ubuntu 24.04
       - [x] Configure NVIDIA GPU support (GTX 1650)
       - [x] Deploy Traefik ingress controller
@@ -131,7 +132,7 @@ This project is executed in distinct engineering phases.
       - [x] Setup security: Pod Security Standards, RBAC, Network Policies
       - [x] Deploy Immich with GPU-accelerated ML
       - [x] Migrate 514GB production data from Docker
-      - [ ] Complete Tailscale remote access (immich.dove-komodo.ts.net)
+      - [x] Complete Tailscale remote access (https://immich.dove-komodo.ts.net)
       - [ ] Setup Cloudflare tunnel (immich.kanokgan.com)
       - [ ] Deploy monitoring stack (Prometheus/Grafana)
       - [ ] Implement automated backups to NAS
