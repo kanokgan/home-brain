@@ -5,6 +5,8 @@ metadata:
   namespace: jellyfin
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: jellyfin
@@ -46,8 +48,13 @@ spec:
           mountPath: /config
         - name: cache
           mountPath: /cache
+        - name: transcode
+          mountPath: /config/transcodes
         - name: media
           mountPath: /media
+          readOnly: true
+        - name: nrop
+          mountPath: /nrop
           readOnly: true
         securityContext:
           privileged: true
@@ -89,10 +96,19 @@ spec:
         hostPath:
           path: /mnt/ssd/jellyfin/cache
           type: DirectoryOrCreate
+      - name: transcode
+        hostPath:
+          path: /mnt/ssd/jellyfin/transcodes
+          type: DirectoryOrCreate
       - name: media
         nfs:
           server: 192.168.0.243
           path: /volume1/Media
+          readOnly: true
+      - name: nrop
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/Nrop
           readOnly: true
       - name: tailscale-state
         emptyDir: {}
