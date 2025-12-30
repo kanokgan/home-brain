@@ -1,16 +1,19 @@
-# Monitoring Stack Setup (Loki + Grafana + Promtail)
+# Monitoring Stack Setup (Loki + Grafana + Promtail + Prometheus)
 
 ## Overview
 
-Centralized logging stack for Kubernetes:
+Complete observability stack for Kubernetes:
 - **Loki**: Log aggregation (stores on NAS)
 - **Promtail**: Log collection agent (runs on each node)
-- **Grafana**: Visualization UI (accessible via Tailscale)
+- **Prometheus**: Metrics collection (stores on local SSD)
+- **node-exporter**: Hardware metrics collector (CPU, RAM, disk)
+- **Grafana**: Unified visualization UI (accessible via Tailscale)
 
 ## Architecture
 
-- **Loki Storage**: NAS at `/mnt/loki-logs` (HomeBrain/loki-logs)
-- **Grafana Storage**: Local SSD PVC (persistent admin settings)
+- **Loki Storage**: NAS at `/mnt/loki-logs` (HomeBrain/loki-logs) - ~5MB/day compressed
+- **Prometheus Storage**: Local SSD PVC (20Gi, 30-day retention)
+- **Grafana Storage**: Local SSD PVC (10Gi, persistent admin settings)
 - **Access**: Tailscale at `https://grafana.dove-komodo.ts.net`
 
 ## Prerequisites
@@ -18,6 +21,7 @@ Centralized logging stack for Kubernetes:
 1. K3s cluster running
 2. NAS mounted on k3s-master at `/mnt/loki-logs`
 3. Tailscale auth key configured
+4. At least 30Gi free on local SSD for metrics storage
 
 ## Step 1: Create NAS Mount for Loki Logs
 
@@ -240,25 +244,54 @@ kubectl get endpoints -n monitoring loki
 ```bash
 # CKey Features
 
-- ✅ Centralized logging for all K8s pods
+- ✅ Centralized logging for all K8s pods (Loki)
+- ✅ Hardware metrics monitoring (CPU, RAM, disk, network)
 - ✅ Loki data stored on NAS (persistent, cost-effective)
+- ✅ Prometheus data on local SSD (fast queries, 30-day retention)
 - ✅ Grafana settings stored on local SSD PVC (fast, persistent)
 - ✅ Remote access via Tailscale (secure, no port forwarding)
 - ✅ LogQL queries for powerful log filtering
-- ✅ Dashboard auto-provisioning support
-- ✅ Compressed storage (~10:1 ratio)
+- ✅ PromQL queries for metrics analysis
+- ✅ Dashboard import support (1860 for hardware metrics)
+- ✅ Compressed log storage (~10:1 ratio)
 
 ## Next Steps
 
-- Create custom Grafana dashboards
-- Set up log-based alerts
-- Add Prometheus for metrics
-- Configure log retention policies
-- Integrate with alerting systems (Slack, email)
+- Import more Grafana dashboards (405, 11074, 315)
+- Set up log-based alerts in Grafana
+- Set up metric-based alerts (CPU > 80%, disk > 90%, etc.)
+- Add Prometheus recording rules for complex queries
+- Configure alerting to Slack/email
+- Monitor Immich container metrics
+- Add custom dashboards for Immich-specific metrics
 kubectl exec -n monitoring -l app=grafana -c tailscale -- tailscale status
 ```
 
-### Grafana admin password reset on restart
+### Prometheus not collecting metrics
+```bash
+# Check Prometheus status
+kubectl get pods -n monitoring -l app=prometheus
+
+# Check Prometheus targets
+kubectl port-forward -n monitoring prometheus-0 9090:9090
+# Open browser: http://localhost:9090/targets
+
+# Check node-exporter is running
+kubectl get pods -n monitoring -l app=node-exporter
+
+# Test node-exporter metrics
+kubectl exec -n monitoring -l app=node-exporter -- wget -qO- http://localhost:9100/metrics
+```
+
+### Grafana missing Prometheus datasource
+```bash
+# Restart Grafana to reload datasources
+kubectl delete pod -n monitoring -l app=grafana
+
+# Or add manually in Grafana UI:
+# Connections → Data sources → Add Prometheus
+# URL: http://prometheus:9090
+```
 This should not happen with PVC storage. If it does:
 ```bash
 # Check PVC is bound
