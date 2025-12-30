@@ -30,6 +30,8 @@ spec:
             value: "all"
           - name: PASS_DEVICE_SPECS
             value: "true"
+          - name: CONFIG_FILE
+            value: /config/config.yaml
         securityContext:
           allowPrivilegeEscalation: true
           capabilities:
@@ -39,6 +41,8 @@ spec:
           mountPath: /var/lib/kubelet/device-plugins
         - name: host-root
           mountPath: /host
+        - name: config
+          mountPath: /config
       volumes:
       - name: device-plugin
         hostPath:
@@ -46,5 +50,8 @@ spec:
       - name: host-root
         hostPath:
           path: /
+      - name: config
+        configMap:
+          name: nvidia-device-plugin-config
       nodeSelector:
         nvidia.com/gpu: "true"

@@ -13,20 +13,12 @@ spec:
       labels:
         app: immich-machine-learning
     spec:
-      runtimeClassName: nvidia
       serviceAccountName: immich
       containers:
       - name: immich-machine-learning
-        image: ghcr.io/immich-app/immich-machine-learning:release-cuda
+        image: ghcr.io/immich-app/immich-machine-learning:release
         ports:
         - containerPort: 3003
-        env:
-        - name: NVIDIA_VISIBLE_DEVICES
-          value: "all"
-        - name: NVIDIA_DRIVER_CAPABILITIES
-          value: "compute,utility"
-        - name: LD_LIBRARY_PATH
-          value: "/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
         envFrom:
         - configMapRef:
             name: immich-config
@@ -37,13 +29,13 @@ spec:
           mountPath: /cache
         resources:
           requests:
+            nvidia.com/gpu: "1"
             memory: "2Gi"
             cpu: "500m"
-            nvidia.com/gpu: "1"
           limits:
+            nvidia.com/gpu: "1"
             memory: "8Gi"
             cpu: "2000m"
-            nvidia.com/gpu: "1"
       volumes:
       - name: cache
         emptyDir: {}

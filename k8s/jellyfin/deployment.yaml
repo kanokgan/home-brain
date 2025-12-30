@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jellyfin
+  namespace: jellyfin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jellyfin
+  template:
+    metadata:
+      labels:
+        app: jellyfin
+    spec:
+      runtimeClassName: nvidia
+      serviceAccountName: tailscale
+      nodeSelector:
+        kubernetes.io/hostname: k3s-master
+      containers:
+      - name: jellyfin
+        image: jellyfin/jellyfin:latest
+        ports:
+        - containerPort: 8096
+          name: http
+        - containerPort: 8920
+          name: https
+        - containerPort: 7359
+          name: discovery
+          protocol: UDP
+        - containerPort: 1900
+          name: dlna
+          protocol: UDP
+        env:
+        - name: JELLYFIN_PublishedServerUrl
+          value: "https://jellyfin.dove-komodo.ts.net"
+        resources:
+          limits:
+            nvidia.com/gpu: "3"
+          requests:
+            nvidia.com/gpu: "3"
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: cache
+          mountPath: /cache
+        - name: media
+          mountPath: /media
+          readOnly: true
+        securityContext:
+          privileged: true
+      
+      - name: tailscale
+        image: ghcr.io/tailscale/tailscale:latest
+        env:
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: TS_AUTHKEY
+        - name: TS_KUBE_SECRET
+          value: "jellyfin-tailscale-state"
+        - name: TS_USERSPACE
+          value: "false"
+        - name: TS_HOSTNAME
+          value: "jellyfin"
+        - name: TS_STATE_DIR
+          value: /var/lib/tailscale
+        - name: TS_SERVE_CONFIG
+          value: /config/serve.json
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        volumeMounts:
+        - name: tailscale-state
+          mountPath: /var/lib/tailscale
+        - name: tailscale-config
+          mountPath: /config
+
+      volumes:
+      - name: config
+        hostPath:
+          path: /mnt/ssd/jellyfin/config
+          type: DirectoryOrCreate
+      - name: cache
+        hostPath:
+          path: /mnt/ssd/jellyfin/cache
+          type: DirectoryOrCreate
+      - name: media
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/Media
+          readOnly: true
+      - name: tailscale-state
+        emptyDir: {}
+      - name: tailscale-config
+        configMap:
+          name: tailscale-config
