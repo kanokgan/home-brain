@@ -4,7 +4,8 @@ metadata:
   name: immich-library-sync
   namespace: immich
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
+  schedule: "0 2 * * *"  # Daily at 2 AM Thailand time
+  timeZone: "Asia/Bangkok"  # UTC+7
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   jobTemplate:
