@@ -146,6 +146,15 @@ INF Connection registered connIndex=1
    - **URL**: `argocd-server.argocd.svc.cluster.local:80`
 3. Click **Save hostname**
 
+#### Jellyfin (HTTP)
+1. Click **Add a public hostname**
+2. Configure:
+   - **Subdomain**: `jellyfin`
+   - **Domain**: `kanokgan.com`
+   - **Service Type**: `HTTP`
+   - **URL**: `jellyfin.jellyfin.svc.cluster.local:8096`
+3. Click **Save hostname**
+
 **Important:** 
 - Use `HTTP` (not HTTPS) if service is running in insecure mode
 - Use `HTTPS` with "No TLS Verify" enabled if service uses self-signed certificates
