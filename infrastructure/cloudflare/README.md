@@ -10,7 +10,8 @@ Internet → cloudflare.com → Cloudflare Tunnel (cloudflared) → K3s Services
 
 ## Services Exposed
 
-- **ArgoCD**: `argocd.kanokgan.com` → `argocd-server.argocd.svc.cluster.local:443`
+- **Immich**: `immich.kanokgan.com` → `immich-server.immich.svc.cluster.local:80`
+- **ArgoCD**: `argocd.kanokgan.com` → `argocd-server.argocd.svc.cluster.local:80`
 
 ## Prerequisites
 
@@ -20,7 +21,7 @@ Internet → cloudflare.com → Cloudflare Tunnel (cloudflared) → K3s Services
 
 ## Setup Instructions
 
-See the runbook: `docs/runbooks/03-cloudflare-tunnel.md`
+See the runbook: `docs/runbooks/02-cloudflare-tunnel.md`
 
 ## Security
 

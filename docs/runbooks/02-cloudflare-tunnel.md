@@ -2,11 +2,11 @@
 
 | Metadata | Details |
 | :--- | :--- |
-| **ID** | RB-003 |
+| **ID** | RB-002 |
 | **Status** | Active |
 | **Maintainer** | @Kanokgan |
-| **Last Updated** | 2025-12-01 |
-| **Objective** | Configure Cloudflare Tunnel for secure external access to ArgoCD |
+| **Last Updated** | 2025-12-30 |
+| **Objective** | Configure Cloudflare Tunnel for secure external access to services (Immich, ArgoCD) |
 
 ---
 
@@ -119,25 +119,37 @@ INF Connection registered connIndex=1
 
 ## 🌍 Step 5: Configure Tunnel Route & DNS
 
-### 5.1 Configure Public Hostname (Cloudflare Dashboard)
+### 5.1 Configure Public Hostnames (Cloudflare Dashboard)
 
 **This is where routing configuration actually lives for token-based tunnels:**
 
 1. Go to **Zero Trust Dashboard** → **Networks** → **Tunnels**
 2. Click on your `homebrain-k3s` tunnel
 3. Go to **Public Hostname** tab
-4. Click **Add a public hostname**
-5. Configure:
-   - **Subdomain**: `argocd`
+4. Add public hostnames for your services:
+
+#### Immich (HTTP)
+1. Click **Add a public hostname**
+2. Configure:
+   - **Subdomain**: `immich`
    - **Domain**: `kanokgan.com`
    - **Service Type**: `HTTP`
+   - **URL**: `immich-server.immich.svc.cluster.local:80`
+3. Click **Save hostname**
+
+#### ArgoCD (HTTP or HTTPS)
+1. Click **Add a public hostname**
+2. Configure:
+   - **Subdomain**: `argocd`
+   - **Domain**: `kanokgan.com`
+   - **Service Type**: `HTTP` (if insecure mode enabled)
    - **URL**: `argocd-server.argocd.svc.cluster.local:80`
-6. Click **Save hostname**
+3. Click **Save hostname**
 
 **Important:** 
-- Use `HTTP` (not HTTPS) if ArgoCD is running in insecure mode (`server.insecure=true`)
-- Use `HTTPS` with "No TLS Verify" enabled if ArgoCD uses self-signed certificates
-- The DNS record is created automatically when you add a public hostname
+- Use `HTTP` (not HTTPS) if service is running in insecure mode
+- Use `HTTPS` with "No TLS Verify" enabled if service uses self-signed certificates
+- The DNS records are created automatically when you add a public hostname
 
 ### 5.2 Verify DNS (Automatic)
 
@@ -170,31 +182,46 @@ curl -X POST "https://api.cloudflare.com/client/v4/zones/<ZONE_ID>/dns_records" 
 
 ## ✅ Step 6: Verify Access
 
+### 6.1 Test DNS & Access
+
 ```bash
 # Wait for DNS propagation (usually < 1 minute)
 sleep 60
 
-# Test DNS resolution
+# Test DNS resolution for Immich
+dig immich.kanokgan.com
+
+# Test HTTPS access to Immich
+curl -I https://immich.kanokgan.com
+
+# Expected: HTTP/2 200 or 301 redirect
+
+# Test DNS resolution for ArgoCD
 dig argocd.kanokgan.com
 
-# Test HTTPS access
+# Test HTTPS access to ArgoCD
 curl -I https://argocd.kanokgan.com
-
-# Expected: HTTP/2 200 or 302 redirect
 ```
 
-Access ArgoCD in your browser:
+### 6.2 Access Services in Browser
+
+**Immich:**
+```
+https://immich.kanokgan.com
+```
+
+Login with your Immich admin credentials.
+
+**ArgoCD** (if deployed):
 ```
 https://argocd.kanokgan.com
 ```
 
-**Login credentials:**
-- Username: `admin`
-- Password: Get from kubectl:
-  ```bash
-  kubectl -n argocd get secret argocd-initial-admin-secret \
-    -o jsonpath="{.data.password}" | base64 -d
-  ```
+Get login credentials:
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+```
 
 ---
 
