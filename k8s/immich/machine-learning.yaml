@@ -13,10 +13,11 @@ spec:
       labels:
         app: immich-machine-learning
     spec:
+      runtimeClassName: nvidia
       serviceAccountName: immich
       containers:
       - name: immich-machine-learning
-        image: ghcr.io/immich-app/immich-machine-learning:release
+        image: ghcr.io/immich-app/immich-machine-learning:release-cuda
         ports:
         - containerPort: 3003
         envFrom:
