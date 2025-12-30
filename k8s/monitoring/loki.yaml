@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: loki
+  namespace: monitoring
+  labels:
+    app: loki
+spec:
+  serviceName: loki
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loki
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      containers:
+      - name: loki
+        image: grafana/loki:2.9.4
+        args:
+        - -config.file=/etc/loki/loki-config.yaml
+        - -log.level=info
+        ports:
+        - containerPort: 3100
+          name: http
+        env:
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: loki-config
+          mountPath: /etc/loki
+        - name: loki-storage
+          mountPath: /loki
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 45
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 45
+          periodSeconds: 10
+      volumes:
+      - name: loki-config
+        configMap:
+          name: loki-config
+      - name: loki-storage
+        hostPath:
+          path: /mnt/loki-logs
+          type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: monitoring
+  labels:
+    app: loki
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 3100
+    targetPort: http
+  selector:
+    app: loki

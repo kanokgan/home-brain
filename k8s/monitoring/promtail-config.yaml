@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: promtail-config
+  namespace: monitoring
+data:
+  promtail-config.yaml: |
+    clients:
+    - url: http://loki:3100/loki/api/v1/push
+
+    positions:
+      filename: /tmp/positions.yaml
+
+    scrape_configs:
+    # Kubernetes pod logs
+    - job_name: kubernetes-pods
+      kubernetes_sd_configs:
+      - role: pod
+      pipeline_stages:
+      - docker: {}
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+        target_label: __path__
+        separator: /
+        replacement: /var/log/pods/*$1/*.log
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+      - source_labels: [__meta_kubernetes_pod_label_component]
+        target_label: component
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_pod_container_name]
+        target_label: container
+      - source_labels: [__meta_kubernetes_pod_node_name]
+        target_label: node
+
+    # Kubernetes node logs (kubelet)
+    - job_name: kubernetes-nodes
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/logs/kubelet
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: node
