@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: immich-library-sync
+  namespace: immich
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: rsync
+            image: instrumentisto/rsync-ssh:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting Immich library sync at $(date)"
+              rsync -av --delete \
+                /source/immich/ \
+                /backup/immich-library/
+              echo "Sync completed at $(date)"
+            volumeMounts:
+            - name: immich-library
+              mountPath: /source/immich
+              readOnly: true
+            - name: backup-destination
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          volumes:
+          - name: immich-library
+            hostPath:
+              path: /var/lib/rancher/k3s/storage/pvc-b9163b19-0031-4de2-b793-de952357b49d_immich_immich-library-pvc
+              type: Directory
+          - name: backup-destination
+            hostPath:
+              path: /mnt/HomeBrain/backups
+              type: Directory
+          nodeSelector:
+            kubernetes.io/hostname: k3s-master
