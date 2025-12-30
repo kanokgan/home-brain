@@ -24,7 +24,7 @@ spec:
       serviceAccountName: immich
       containers:
       - name: immich-machine-learning
-        image: ghcr.io/immich-app/immich-machine-learning:v2.4.0
+        image: ghcr.io/immich-app/immich-machine-learning:release-cuda
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3003
