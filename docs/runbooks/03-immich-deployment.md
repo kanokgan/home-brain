@@ -3,9 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Status | Active |
-| Version | v2.4.1 |
+| Version | v2.4.1 (release tag) |
 | Updated | 2025-12-30 |
 | Cluster | K3s v1.33.6 single-node |
+| Deployment | Manual kubectl apply |
 
 ## Overview
 
@@ -314,13 +315,26 @@ kubectl get namespace immich -o yaml | grep pod-security
 ### Update Immich
 
 ```bash
-# Update to latest image
-kubectl set image deployment/immich-server -n immich immich-server=ghcr.io/immich-app/immich-server:latest
+# Pull latest release tag
+kubectl set image deployment/immich-server -n immich immich-server=ghcr.io/immich-app/immich-server:release
 kubectl set image deployment/immich-machine-learning -n immich immich-machine-learning=ghcr.io/immich-app/immich-machine-learning:release-cuda
 
 # Restart
 kubectl rollout restart deployment/immich-server -n immich
 kubectl rollout restart deployment/immich-machine-learning -n immich
+```
+
+**Note**: Deployments use simple restart strategy without health checks. Ensure no active operations (library scans, face recognition) before updating.
+
+### Refresh Tailscale Auth Key
+
+If Tailscale sidecar fails with auth errors, update the secret:
+
+```bash
+# Generate new auth key from Tailscale admin console (reusable, 90-day expiry)
+kubectl delete secret tailscale-auth -n immich
+kubectl create secret generic tailscale-auth -n immich --from-literal=TS_AUTHKEY=tskey-auth-xxx
+kubectl rollout restart deployment/immich-server -n immich
 ```
 
 ### Backup Database

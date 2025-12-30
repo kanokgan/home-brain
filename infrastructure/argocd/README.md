@@ -1,5 +1,11 @@
 # ArgoCD Installation
 
+## Current Status
+
+ArgoCD is installed and accessible via Tailscale, but **not actively managing applications**. All deployments are handled manually via `kubectl apply`.
+
+**Tailscale Access**: https://argocd-1.dove-komodo.ts.net
+
 ## Installation
 
 ArgoCD was installed on the K3s cluster using Helm:
@@ -18,6 +24,16 @@ helm install argocd argo/argo-cd \
   -f helm-values.yaml
 ```
 
+## Tailscale Integration
+
+See [server-deployment.yaml](server-deployment.yaml) for complete configuration.
+
+Key aspects:
+- Tailscale sidecar runs alongside argocd-server
+- State persisted via TS_KUBE_SECRET in Kubernetes secret
+- Hostname: argocd
+- Auth key stored in secret `tailscale-auth`
+
 ## Configuration
 
 See `helm-values.yaml` for the custom configuration:
@@ -26,6 +42,16 @@ See `helm-values.yaml` for the custom configuration:
 
 ## Access
 
+### Tailscale (Primary)
+
+https://argocd-1.dove-komodo.ts.net
+
+Admin password:
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+```
+
 ### CLI Access
 
 ```bash
@@ -33,11 +59,11 @@ See `helm-values.yaml` for the custom configuration:
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d
 
-# Port forward
+# Port forward (if not using Tailscale)
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 # Login via CLI
-argocd login localhost:8080 --username admin
+argocd login argocd-1.dove-komodo.ts.net --username admin
 ```
 
 ### Web UI

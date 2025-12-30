@@ -5,13 +5,6 @@ metadata:
   namespace: immich
 spec:
   replicas: 1
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
-  revisionHistoryLimit: 3
-  progressDeadlineSeconds: 600
   selector:
     matchLabels:
       app: immich-server
@@ -56,25 +49,8 @@ spec:
             cpu: "500m"
       - name: immich-server
         image: ghcr.io/immich-app/immich-server:release
-        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 2283
-        livenessProbe:
-          httpGet:
-            path: /api/server-info/ping
-            port: 2283
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /api/server-info/ping
-            port: 2283
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
         env:
         - name: IMMICH_MACHINE_LEARNING_ENABLED
           value: "true"

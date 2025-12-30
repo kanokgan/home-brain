@@ -1,7 +1,7 @@
 # HomeBrain: AI-Powered Home Operations Platform
 
 ![Status](https://img.shields.io/badge/Status-Active_Development-green)
-![Tech](https://img.shields.io/badge/Stack-Golang_|_K3s_|_ArgoCD-blue)
+![Tech](https://img.shields.io/badge/Stack-Golang_|_K3s-blue)
 ![Architecture](https://img.shields.io/badge/Arch-Hybrid_(ARM64/AMD64)-orange)
 
 **HomeBrain** is an Internal Developer Platform (IDP) designed to manage, aggregate, and query personal data (Finance, Media, Infrastructure) through a unified Golang API and Local LLM interface.
