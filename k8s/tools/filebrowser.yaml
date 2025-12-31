@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tools
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tailscale
+  namespace: tools
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tailscale
+  namespace: tools
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["filebrowser-tailscale-state"]
+  verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tailscale
+  namespace: tools
+subjects:
+- kind: ServiceAccount
+  name: tailscale
+  namespace: tools
+roleRef:
+  kind: Role
+  name: tailscale
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: filebrowser
+  namespace: tools
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: filebrowser
+  template:
+    metadata:
+      labels:
+        app: filebrowser
+    spec:
+      serviceAccountName: tailscale
+      nodeSelector:
+        kubernetes.io/hostname: k3s-master
+      containers:
+      - name: filebrowser
+        image: filebrowser/filebrowser:latest
+        ports:
+        - containerPort: 80
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: ssd
+          mountPath: /srv/ssd
+        - name: kanokgan-drive
+          mountPath: /srv/kanokgan-drive
+          readOnly: true
+        - name: media
+          mountPath: /srv/media
+          readOnly: true
+        - name: nrop
+          mountPath: /srv/nrop
+          readOnly: true
+        - name: database
+          mountPath: /database
+        - name: config
+          mountPath: /config
+      
+      - name: tailscale
+        image: ghcr.io/tailscale/tailscale:latest
+        env:
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: TS_AUTHKEY
+        - name: TS_KUBE_SECRET
+          value: "filebrowser-tailscale-state"
+        - name: TS_USERSPACE
+          value: "false"
+        - name: TS_HOSTNAME
+          value: "filebrowser"
+        - name: TS_STATE_DIR
+          value: /var/lib/tailscale
+        - name: TS_SERVE_CONFIG
+          value: /config/serve.json
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        volumeMounts:
+        - name: tailscale-state
+          mountPath: /var/lib/tailscale
+        - name: tailscale-config
+          mountPath: /config
+      
+      volumes:
+      - name: ssd
+        hostPath:
+          path: /mnt/ssd
+          type: Directory
+      - name: kanokgan-drive
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/KanokganDrive
+          readOnly: true
+      - name: media
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/Media
+          readOnly: true
+      - name: nrop
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/Nrop
+          readOnly: true
+      - name: database
+        hostPath:
+          path: /mnt/ssd/filebrowser/database
+          type: DirectoryOrCreate
+      - name: config
+        hostPath:
+          path: /mnt/ssd/filebrowser/config
+          type: DirectoryOrCreate
+      - name: tailscale-state
+        emptyDir: {}
+      - name: tailscale-config
+        configMap:
+          name: tailscale-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tailscale-config
+  namespace: tools
+data:
+  serve.json: |
+    {
+      "TCP": {
+        "443": {
+          "HTTPS": true
+        }
+      },
+      "Web": {
+        "${TS_CERT_DOMAIN}:443": {
+          "Handlers": {
+            "/": {
+              "Proxy": "http://127.0.0.1:80"
+            }
+          }
+        }
+      },
+      "AllowFunnel": {
+        "${TS_CERT_DOMAIN}:443": false
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: filebrowser
+  namespace: tools
+spec:
+  selector:
+    app: filebrowser
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
