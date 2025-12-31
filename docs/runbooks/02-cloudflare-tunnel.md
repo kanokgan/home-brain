@@ -155,6 +155,15 @@ INF Connection registered connIndex=1
    - **URL**: `jellyfin.jellyfin.svc.cluster.local:8096`
 3. Click **Save hostname**
 
+#### Actual Budget (HTTP)
+1. Click **Add a public hostname**
+2. Configure:
+   - **Subdomain**: `actual`
+   - **Domain**: `kanokgan.com`
+   - **Service Type**: `HTTP`
+   - **URL**: `actual.actual.svc.cluster.local:5006`
+3. Click **Save hostname**
+
 **Important:** 
 - Use `HTTP` (not HTTPS) if service is running in insecure mode
 - Use `HTTPS` with "No TLS Verify" enabled if service uses self-signed certificates

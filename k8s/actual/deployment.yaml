@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: actual
+  namespace: actual
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: actual
+  template:
+    metadata:
+      labels:
+        app: actual
+    spec:
+      serviceAccountName: tailscale
+      nodeSelector:
+        kubernetes.io/hostname: k3s-master
+      containers:
+      - name: actual
+        image: actualbudget/actual-server:latest
+        ports:
+        - containerPort: 5006
+          name: http
+        env:
+        - name: ACTUAL_SERVER_FILES
+          value: /data
+        - name: ACTUAL_PORT
+          value: "5006"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      
+      - name: tailscale
+        image: ghcr.io/tailscale/tailscale:latest
+        env:
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: TS_AUTHKEY
+        - name: TS_KUBE_SECRET
+          value: "actual-tailscale-state"
+        - name: TS_USERSPACE
+          value: "false"
+        - name: TS_HOSTNAME
+          value: "actual"
+        - name: TS_STATE_DIR
+          value: /var/lib/tailscale
+        - name: TS_SERVE_CONFIG
+          value: /config/serve.json
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        volumeMounts:
+        - name: tailscale-state
+          mountPath: /var/lib/tailscale
+        - name: tailscale-config
+          mountPath: /config
+      
+      volumes:
+      - name: data
+        hostPath:
+          path: /mnt/ssd/actual
+          type: DirectoryOrCreate
+      - name: tailscale-state
+        emptyDir: {}
+      - name: tailscale-config
+        configMap:
+          name: tailscale-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: actual
+  namespace: actual
+spec:
+  selector:
+    app: actual
+  ports:
+  - port: 5006
+    targetPort: 5006
+  type: ClusterIP
