@@ -10,12 +10,11 @@ infrastructure/
 │   ├── helm-values.yaml # Helm chart values
 │   ├── apps/            # Application manifests
 │   └── README.md
-├── cloudflare/          # Cloudflare Tunnel for external access
+├── cloudflare/          # Cloudflare Tunnel for public external access
 │   ├── namespace.yaml
 │   ├── deployment.yaml
 │   ├── configmap.yaml
 │   └── README.md
-├── ingress/             # Traefik ingress controller
 ├── monitoring/          # Prometheus, Grafana, Loki
 └── storage/             # NFS provisioner, PVCs
 ```
@@ -24,10 +23,16 @@ infrastructure/
 
 1. **ArgoCD** - GitOps engine (✅ Deployed)
 2. **Storage** - NFS provisioner for Synology (✅ Deployed)
-3. **Cloudflare** - Tunnel for secure external access (✅ Deployed)
-4. **Ingress** - Traefik for external access
-5. **Monitoring** - Observability stack
-6. **Applications** - Actual services (Immich, Actual Budget, etc.)
+3. **Cloudflare** - Tunnel for secure public access (✅ Deployed)
+4. **Monitoring** - Observability stack (⏳ In Progress)
+5. **Applications** - Actual services (Immich, Jellyfin, etc.) (✅ Deployed)
+
+## Network Architecture
+
+- **Public Access:** Cloudflare Tunnel (immich.kanokgan.com, jellyfin.kanokgan.com, argocd.kanokgan.com)
+- **Private Access:** Tailscale mesh VPN (*.dove-komodo.ts.net with HTTPS)
+- **No Traditional Ingress:** K3s Traefik is disabled - all routing via Cloudflare/Tailscale
+- **Service Type:** All services use ClusterIP (no LoadBalancer/NodePort)
 
 ## Prerequisites
 

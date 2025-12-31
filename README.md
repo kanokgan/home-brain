@@ -25,8 +25,8 @@ flowchart TB
   end
  subgraph subGraph1["K3s Single Node Cluster"]
         subgraph subGraph2["k3s-master: Lenovo X1 Extreme Gen2"]
-            Ingress["Traefik Ingress"]
             Immich["Immich Server"]
+            Jellyfin["Jellyfin Server"]
             ImmichML["Immich ML (GPU)"]
             Postgres["PostgreSQL"]
             Redis["Redis"]
@@ -38,9 +38,8 @@ flowchart TB
         SMB[("SMB Shares")]
   end
     User(("User")) --> CF & TS
-    CF --> Ingress
-    TS --> Ingress
-    Ingress --> Immich
+    CF --> Immich & Jellyfin
+    TS --> Immich & Jellyfin
     Immich --> ImmichML & Postgres & Redis
     Immich --> LocalNVMe
     Immich -.-> SMB
@@ -98,22 +97,21 @@ graph LR
 | **Orchestration** | **K3s** | Lightweight Kubernetes distribution for single-node deployment. |
 | **Applications** | **Immich** | Self-hosted photo management with GPU-accelerated ML (face recognition, CLIP embeddings). |
 | **AI / ML** | **CUDA + NVIDIA GTX 1650** | GPU acceleration for machine learning workloads. |
-| **Networking** | **Tailscale** | Zero-trust Mesh VPN for secure remote access. |
-| **Ingress** | **Traefik** | LoadBalancer ingress controller for HTTP routing. |
-| **Storage** | **Local NVMe + SMB** | 1.9TB local NVMe for hot data, NAS for external libraries and backups. |
+| **Networking** | **Tailscale + Cloudflare Tunnel** | Zero-trust mesh VPN for private access, Cloudflare Tunnel for public access. No traditional ingress controller. |
+| **Storage** | **Local NVMe + NFS** | 1.9TB local NVMe for hot data, NAS for media libraries and backups. |
 
 ## Quick Start
 
 For detailed infrastructure setup instructions, see the [Infrastructure Runbook](docs/runbooks/01-infrastructure.md).
 
 **Current Deployment:**
-1. ✅ K3s v1.33.6 on Ubuntu 24.04 LTS (Lenovo X1 Extreme Gen2)
-2. ✅ NVIDIA GPU support with Container Toolkit and device plugin
-3. ✅ Immich photo management deployed with GPU-accelerated ML
-4. ✅ 514GB production data migrated from Docker
-5. ✅ Traefik ingress (http://immich.home.local)
-6. ✅ Tailscale sidecar for remote access (https://immich.dove-komodo.ts.net)
-7. ✅ Cloudflare tunnel for public access (https://immich.kanokgan.com)
+1. ✅ K3s v1.33.6 on Ubuntu 24.04 LTS (Lenovo X1 Extreme Gen2) with Traefik disabled
+2. ✅ NVIDIA GPU support with Container Toolkit and device plugin (4x virtual GPUs via time-slicing)
+3. ✅ Immich photo management with GPU-accelerated ML (514GB data migrated)
+4. ✅ Jellyfin media server with GPU transcoding (3x GPUs)
+5. ✅ Tailscale mesh for secure private access (HTTPS on *.dove-komodo.ts.net)
+6. ✅ Cloudflare Tunnel for public access (immich.kanokgan.com, jellyfin.kanokgan.com, argocd.kanokgan.com)
+7. ✅ Filebrowser for SSD/NAS management via Tailscale
 
 For step-by-step instructions with troubleshooting, refer to:
 - [RB-001: Infrastructure Setup](docs/runbooks/01-infrastructure.md)
@@ -127,14 +125,16 @@ This project is executed in distinct engineering phases.
 
   - [x] **Phase 1: Infrastructure & Core Services** (95% Complete)
       - [x] Provision K3s single-node cluster on Ubuntu 24.04
-      - [x] Configure NVIDIA GPU support (GTX 1650)
-      - [x] Deploy Traefik ingress controller
-      - [x] Configure Synology NAS as SMB storage
+      - [x] Configure NVIDIA GPU support (GTX 1650 with 4x time-slicing)
+      - [x] Disable Traefik - use Cloudflare Tunnel + Tailscale instead
+      - [x] Configure Synology NAS as NFS storage
       - [x] Setup security: Pod Security Standards, RBAC, Network Policies
       - [x] Deploy Immich with GPU-accelerated ML
+      - [x] Deploy Jellyfin with GPU transcoding
       - [x] Migrate 514GB production data from Docker
-      - [x] Complete Tailscale remote access (https://immich.dove-komodo.ts.net)
-      - [x] Setup Cloudflare tunnel (https://immich.kanokgan.com)
+      - [x] Complete Tailscale HTTPS access (*.dove-komodo.ts.net)
+      - [x] Setup Cloudflare tunnel (*.kanokgan.com)
+      - [x] Deploy Filebrowser for file management
       - [ ] Deploy monitoring stack (Prometheus/Grafana)
       - [ ] Implement automated backups to NAS
   - [ ] **Phase 2: GitOps & Automation** - Next
