@@ -3,11 +3,13 @@
 ## Overview
 
 Complete observability stack for Kubernetes:
-- **Loki**: Log aggregation (stores on NAS)
+- **Loki**: Log aggregation (stores on NAS) - **Currently scaled to 0** to reduce NAS I/O
 - **Promtail**: Log collection agent (runs on each node)
 - **Prometheus**: Metrics collection (stores on local SSD)
 - **node-exporter**: Hardware metrics collector (CPU, RAM, disk)
-- **Grafana**: Unified visualization UI (accessible via Tailscale)
+- **Grafana**: Unified visualization UI
+
+**Access:** https://grafana.dove-komodo.ts.net (via Tailscale)
 
 ## Architecture
 

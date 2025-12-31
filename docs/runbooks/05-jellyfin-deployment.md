@@ -13,7 +13,7 @@
 
 Jellyfin is deployed on k3s-master with:
 - **GPU hardware transcoding**: NVIDIA NVENC/NVDEC with GTX 1650 (10x faster than CPU)
-- **GPU time-slicing**: 3 GPU units allocated (Immich ML uses 1 unit)
+- **GPU time-slicing**: 2 GPU slices allocated (Immich uses 2 slices: server + ML)
 - **NFS media mount**: Read-only access to NAS at 192.168.0.243:/volume1/Media
 - **NVIDIA runtime**: Required for GPU transcoding support
 - **Tailscale access**: Private HTTPS access via Tailscale network
@@ -29,7 +29,7 @@ Jellyfin is deployed on k3s-master with:
    
    # Ensure NFS permissions allow k3s-master (192.168.0.206) or entire subnet
    # Synology: Control Panel → Shared Folder → Media → Edit → NFS Permissions
-   ``` with Time-Slicing**
+   **2. NVIDIA Device Plugin with Time-Slicing**
    ```bash
    # Verify NVIDIA device plugin is running
    kubectl get daemonset -n kube-system nvidia-device-plugin-daemonset
@@ -37,8 +37,6 @@ Jellyfin is deployed on k3s-master with:
    # Check GPU time-slicing is enabled (should show 4 allocatable GPUs)
    kubectl get node k3s-master -o json | jq '.status.allocatable."nvidia.com/gpu"'
    # Should output: "4"
-   # Should already be installed for Immich
-   kubectl get daemonset -n kube-system nvidia-device-plugin-daemonset
    ```
 
 3. **Tailscale Auth Key**

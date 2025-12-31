@@ -17,8 +17,17 @@ spec:
       containers:
       - name: redis
         image: redis:6.2-alpine
+        command:
+        - redis-server
+        - --appendonly
+        - "yes"
+        - --appendfsync
+        - everysec
         ports:
         - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
         resources:
           requests:
             memory: "128Mi"
@@ -26,6 +35,10 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: immich-redis-pvc
 ---
 apiVersion: v1
 kind: Service

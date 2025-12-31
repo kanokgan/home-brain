@@ -39,7 +39,8 @@ spec:
             cpu: "2000m"
       volumes:
       - name: cache
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: immich-ml-cache-pvc
 ---
 apiVersion: v1
 kind: Service

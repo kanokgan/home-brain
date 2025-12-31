@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Status | Active |
-| Version | v2.4.1 (release tag) |
-| Updated | 2025-12-30 |
+| Version | release (latest) |
+| Updated | 2026-01-01 |
 | Cluster | K3s v1.33.6 single-node |
 | Deployment | Manual kubectl apply |
 
@@ -91,10 +91,10 @@ On k3s-master, configure SMB mounts in `/etc/fstab`:
 # Create mount points
 sudo mkdir -p /mnt/{CameraUploads,JongdeeDrive,PorDrive,PoonDrive,ChurinDrive,OrawanDrive,IPCamera,KanokganDrive,Nrop}
 
-# Add to /etc/fstab (replace NAS_IP and credentials)
-//100.77.209.53/CameraUploads /mnt/CameraUploads cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev 0 0
-//100.77.209.53/JongdeeDrive /mnt/JongdeeDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev 0 0
-# ... (repeat for all shares)
+# Add to /etc/fstab with optimized CIFS options
+//192.168.0.243/CameraUploads /mnt/CameraUploads cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/JongdeeDrive /mnt/JongdeeDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+# ... (repeat for all 9 shares with same options)
 
 # Mount all
 sudo mount -a

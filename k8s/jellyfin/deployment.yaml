@@ -38,9 +38,9 @@ spec:
           value: "https://jellyfin.dove-komodo.ts.net"
         resources:
           limits:
-            nvidia.com/gpu: "3"
+            nvidia.com/gpu: "2"
           requests:
-            nvidia.com/gpu: "3"
+            nvidia.com/gpu: "2"
             memory: "2Gi"
             cpu: "1000m"
         volumeMounts:

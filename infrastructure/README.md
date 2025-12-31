@@ -21,18 +21,20 @@ infrastructure/
 
 ## Deployment Order
 
-1. **ArgoCD** - GitOps engine (✅ Deployed)
-2. **Storage** - NFS provisioner for Synology (✅ Deployed)
+1. **Storage** - CIFS mounts + local-path provisioner (✅ Configured)
+2. **GPU** - NVIDIA device plugin with time-slicing (✅ Deployed)
 3. **Cloudflare** - Tunnel for secure public access (✅ Deployed)
-4. **Monitoring** - Observability stack (⏳ In Progress)
-5. **Applications** - Actual services (Immich, Jellyfin, etc.) (✅ Deployed)
+4. **Monitoring** - Observability stack (✅ Deployed, Loki scaled to 0)
+5. **Applications** - Services (Immich, Jellyfin, ArgoCD) (✅ Deployed)
+6. **ArgoCD** - GitOps engine (✅ Deployed, not actively managing apps)
 
 ## Network Architecture
 
 - **Public Access:** Cloudflare Tunnel (immich.kanokgan.com, jellyfin.kanokgan.com, argocd.kanokgan.com)
 - **Private Access:** Tailscale mesh VPN (*.dove-komodo.ts.net with HTTPS)
-- **No Traditional Ingress:** K3s Traefik is disabled - all routing via Cloudflare/Tailscale
+- **No Traditional Ingress:** K3s Traefik disabled - all routing via Cloudflare Tunnel + Tailscale sidecars
 - **Service Type:** All services use ClusterIP (no LoadBalancer/NodePort)
+- **GPU:** NVIDIA GTX 1650 Mobile with 4x time-slicing for shared GPU access
 
 ## Prerequisites
 

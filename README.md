@@ -12,8 +12,8 @@ It transforms a standard Home Lab into a production-grade, Cloud-Native environm
 
 The system runs on a **Single-Node K3s Cluster** optimized for self-hosted applications with GPU acceleration:
 
-* **K3s Master Node:** Lenovo X1 Extreme Gen2 (Intel i7-9750H/32GB RAM/NVIDIA GTX 1650). Ubuntu 24.04 LTS bare metal running K3s v1.33.6. Handles all workloads with GPU acceleration for ML tasks.
-* **Storage:** 1.9TB local NVMe SSD for high-performance storage. NAS (Synology DS923+) mounted via SMB for external libraries and backups.
+* **K3s Single Node:** Lenovo X1 Extreme Gen2 (Intel i7-9750H 6C/12T, 32GB RAM, NVIDIA GTX 1650 Mobile 4GB). Ubuntu 24.04 LTS bare metal running K3s v1.33.6+k3s1. Handles all workloads with GPU time-slicing (4 virtual GPUs).
+* **Storage:** 1.9TB local NVMe SSD for hot data (K3s local-path provisioner). NAS (Synology DS923+ at 192.168.0.243) mounted via CIFS/SMB 3.1.1 for external photo libraries and backups.
 
 ### Runtime Architecture
 
@@ -96,9 +96,9 @@ graph LR
 | :--- | :--- | :--- |
 | **Orchestration** | **K3s** | Lightweight Kubernetes distribution for single-node deployment. |
 | **Applications** | **Immich** | Self-hosted photo management with GPU-accelerated ML (face recognition, CLIP embeddings). |
-| **AI / ML** | **CUDA + NVIDIA GTX 1650** | GPU acceleration for machine learning workloads. |
-| **Networking** | **Tailscale + Cloudflare Tunnel** | Zero-trust mesh VPN for private access, Cloudflare Tunnel for public access. No traditional ingress controller. |
-| **Storage** | **Local NVMe + NFS** | 1.9TB local NVMe for hot data, NAS for media libraries and backups. |
+| **AI / ML** | **CUDA + NVIDIA GTX 1650 (4x time-sliced)** | GPU acceleration for Immich ML (face recognition, CLIP), Jellyfin transcoding, and Immich video encoding. |
+| **Networking** | **Tailscale + Cloudflare Tunnel** | Zero-trust mesh VPN for private access (*.dove-komodo.ts.net), Cloudflare Tunnel for public access (*.kanokgan.com). No traditional ingress controller - Traefik disabled. |
+| **Storage** | **Local NVMe + CIFS** | 1.9TB local NVMe for hot data (K3s local-path), Synology DS923+ NAS via optimized CIFS mounts for read-only external libraries. |
 
 ## Quick Start
 
@@ -107,35 +107,38 @@ For detailed infrastructure setup instructions, see the [Infrastructure Runbook]
 **Current Deployment:**
 1. ✅ K3s v1.33.6 on Ubuntu 24.04 LTS (Lenovo X1 Extreme Gen2) with Traefik disabled
 2. ✅ NVIDIA GPU support with Container Toolkit and device plugin (4x virtual GPUs via time-slicing)
-3. ✅ Immich photo management with GPU-accelerated ML (514GB data migrated)
-4. ✅ Jellyfin media server with GPU transcoding (3x GPUs)
-5. ✅ Tailscale mesh for secure private access (HTTPS on *.dove-komodo.ts.net)
-6. ✅ Cloudflare Tunnel for public access (immich.kanokgan.com, jellyfin.kanokgan.com, argocd.kanokgan.com)
-7. ✅ Filebrowser for SSD/NAS management via Tailscale
+3. ✅ Immich photo management with GPU-accelerated ML (2 GPU slices: server + ML)
+4. ✅ Jellyfin media server with GPU transcoding (2 GPU slices)
+5. ✅ Redis with AOF persistence + ML model cache (persistent storage)
+6. ✅ Tailscale mesh for secure private access (HTTPS on *.dove-komodo.ts.net)
+7. ✅ Cloudflare Tunnel for public access (*.kanokgan.com)
+8. ✅ Monitoring stack: Prometheus, Grafana, Promtail, node-exporter (Loki available but scaled to 0)
+9. ✅ Filebrowser for SSD/NAS management via Tailscale
 
 For step-by-step instructions with troubleshooting, refer to:
 - [RB-001: Infrastructure Setup](docs/runbooks/01-infrastructure.md)
 - [RB-002: Cloudflare Tunnel Setup](docs/runbooks/02-cloudflare-tunnel.md)
-- [RB-003: Immich Deployment](docs/runbooks/03-immich-deployment.md)
-- [Quick Setup: Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL_SETUP.md)
+- [RB-003: GPU Configuration](docs/runbooks/03-gpu-configuration.md)
+- [RB-004: Immich Deployment](docs/runbooks/04-immich-deployment.md)
+- [RB-005: Jellyfin Deployment](docs/runbooks/05-jellyfin-deployment.md)
 
 ## Roadmap
 
 This project is executed in distinct engineering phases.
 
-  - [x] **Phase 1: Infrastructure & Core Services** (95% Complete)
+  - [x] **Phase 1: Infrastructure & Core Services** (98% Complete)
       - [x] Provision K3s single-node cluster on Ubuntu 24.04
       - [x] Configure NVIDIA GPU support (GTX 1650 with 4x time-slicing)
       - [x] Disable Traefik - use Cloudflare Tunnel + Tailscale instead
-      - [x] Configure Synology NAS as NFS storage
-      - [x] Setup security: Pod Security Standards, RBAC, Network Policies
-      - [x] Deploy Immich with GPU-accelerated ML
+      - [x] Configure Synology NAS with optimized CIFS mounts (SMB 3.1.1, 128KB buffers)
+      - [x] Setup security: Pod Security Standards, RBAC
+      - [x] Deploy Immich with GPU-accelerated ML + persistent Redis/ML cache
       - [x] Deploy Jellyfin with GPU transcoding
-      - [x] Migrate 514GB production data from Docker
       - [x] Complete Tailscale HTTPS access (*.dove-komodo.ts.net)
       - [x] Setup Cloudflare tunnel (*.kanokgan.com)
       - [x] Deploy Filebrowser for file management
-      - [ ] Deploy monitoring stack (Prometheus/Grafana)
+      - [x] Deploy monitoring stack (Prometheus/Grafana/Promtail)
+      - [ ] Re-enable Loki for log aggregation
       - [ ] Implement automated backups to NAS
   - [ ] **Phase 2: GitOps & Automation** - Next
       - [ ] Deploy ArgoCD for GitOps workflow

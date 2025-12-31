@@ -4,7 +4,7 @@ Quick reference for setting up Cloudflare Tunnel to access Immich at `immich.kan
 
 ## Prerequisites
 
-- ✅ Immich deployed in K3s (see [RB-003: Immich Deployment](docs/runbooks/03-immich-deployment.md))
+- ✅ Immich deployed in K3s (see [RB-004: Immich Deployment](runbooks/04-immich-deployment.md))
 - ✅ Cloudflare account with `kanokgan.com` domain
 - ✅ Cloudflare Zero Trust (Free tier available)
 
@@ -65,7 +65,22 @@ You should see: `Connection registered connIndex=0` and `Connection registered c
 - **URL**: `immich-server.immich.svc.cluster.local:80`
 - Click **Save hostname**
 
-DNS record will be created automatically!
+### For Jellyfin:
+- **Subdomain**: `jellyfin`
+- **Domain**: `kanokgan.com`
+- **Service Type**: `HTTP`
+- **URL**: `jellyfin.jellyfin.svc.cluster.local:80`
+- Click **Save hostname**
+
+### For ArgoCD:
+- **Subdomain**: `argocd`
+- **Domain**: `kanokgan.com`
+- **Service Type**: `HTTPS`
+- **URL**: `argocd-server.argocd.svc.cluster.local:443`
+- **TLS Settings**: Enable "No TLS Verify" (self-signed cert)
+- Click **Save hostname**
+
+DNS records will be created automatically!
 
 ## Step 5: Test Access
 

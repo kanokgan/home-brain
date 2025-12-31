@@ -1,210 +1,260 @@
-# Runbook RB-001: K3s Cluster Provisioning
+# Runbook RB-001: K3s Cluster Infrastructure
 
 | Field | Value |
 |-------|-------|
 | Status | Active |
 | Version | v1.33.6+k3s1 |
-| Updated | 2025-12-08 |
+| Updated | 2026-01-01 |
+| Architecture | Single-node bare metal |
+| Hardware | Lenovo X1 Extreme Gen2 |
 
-## Prerequisites
+## Overview
 
-Generate Tailscale auth key: https://login.tailscale.com/admin/settings/keys
+Home-brain runs on a single-node K3s cluster with hybrid networking:
+- **Primary network:** Ethernet 192.168.0.206 (node-ip, Cloudflare Tunnel)
+- **Backup network:** WiFi 192.168.0.189 (automatic failover)
+- **Remote access:** Tailscale 100.81.236.27 (advertise-address)
 
-```bash
-export TS_AUTH_KEY="tskey-auth-..."
-export MASTER_IP=""  # Will be set in Step 1
-export NODE_TOKEN="" # Will be set in Step 1
+**Note:** Cloudflare Tunnel requires Ethernet due to K3s hardcoded `node-ip` and `flannel-iface` bindings. WiFi failover works for Tailscale access only.
+
+## Current Infrastructure
+
+### Node: k3s-master
+- **Hostname:** k3s-master
+- **OS:** Ubuntu 24.04.3 LTS
+- **Kernel:** 6.8.0-90-generic
+- **CPU:** 12 cores (Intel Core i7-9750H)
+- **RAM:** 32GB
+- **GPU:** NVIDIA GeForce GTX 1650 Mobile (4GB VRAM)
+- **Storage:** 
+  - Local NVMe SSD for system + K3s storage
+  - NAS: Synology DS923+ (192.168.0.243) via CIFS/SMB
+
+### Network Configuration
+
+#### Ethernet (Primary)
+- **Interface:** enp0s31f6
+- **IP:** 192.168.0.206
+- **Usage:** K3s cluster traffic, Cloudflare Tunnel
+
+#### WiFi (Backup)
+- **Interface:** wlp82s0
+- **IP:** 192.168.0.189
+- **Usage:** Automatic failover (Tailscale only)
+
+#### Tailscale (Remote Access)
+- **Interface:** tailscale0
+- **IP:** 100.81.236.27
+- **Usage:** Remote kubectl access, service access
+
+### K3s Configuration
+
+**File:** `/etc/rancher/k3s/config.yaml`
+
+```yaml
+node-ip: 192.168.0.206           # Hardcoded to Ethernet
+flannel-iface: enp0s31f6         # Hardcoded to Ethernet
+advertise-address: 100.81.236.27 # Tailscale for remote access
+tls-san:
+  - 192.168.0.206
+  - 100.81.236.27
+disable:
+  - traefik
+write-kubeconfig-mode: "0644"
 ```
 
-## Step 1: Control Plane (Mac Mini M2)
+### Storage Configuration
+
+#### NAS CIFS Mounts
+
+**File:** `/etc/fstab` (on k3s-master)
 
 ```bash
-# Launch VM with Tailscale
-multipass launch --name k3s-master --cpus 2 --memory 4G --disk 20G --cloud-init - <<EOF
-package_update: true
-package_upgrade: true
-runcmd:
-  - curl -fsSL https://tailscale.com/install.sh | sh
-EOF
+# Optimized CIFS mounts for Immich external libraries
+//192.168.0.243/CameraUploads /mnt/CameraUploads cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/JongdeeDrive /mnt/JongdeeDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/PorDrive /mnt/PorDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/PoonDrive /mnt/PoonDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/ChurinDrive /mnt/ChurinDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/OrawanDrive /mnt/OrawanDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/IPCamera /mnt/IPCamera cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/KanokganDrive /mnt/KanokganDrive cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+//192.168.0.243/Nrop /mnt/Nrop cifs credentials=/root/.smbcredentials,uid=999,gid=999,_netdev,cache=loose,actimeo=30,rsize=130048,wsize=130048,vers=3.1.1 0 0
+```
 
-# Authenticate and get IP
-multipass exec k3s-master -- sudo tailscale up --authkey=${TS_AUTH_KEY}
-MASTER_IP=$(multipass exec k3s-master -- tailscale ip -4)
-echo "Master IP: $MASTER_IP"
+**CIFS Options Explained:**
+- `cache=loose`: Aggressive client-side caching for read performance
+- `actimeo=30`: Cache file attributes for 30 seconds
+- `rsize=130048, wsize=130048`: 128KB read/write buffer (optimal for gigabit)
+- `vers=3.1.1`: Force SMB 3.1.1 (fastest modern protocol)
+- `_netdev`: Wait for network before mounting
+
+## Installation (Existing Node)
+
+This runbook documents the current state. For fresh installation on similar hardware:
+
+### Prerequisites
+
+```bash
+# Install required packages
+sudo apt update
+sudo apt install -y cifs-utils nfs-common curl
+
+# Install Tailscale
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up --hostname=k3s-master
+```
+
+### Install K3s
+
+```bash
+# Create config directory
+sudo mkdir -p /etc/rancher/k3s
+
+# Get local IP and Tailscale IP
+LOCAL_IP=$(ip -4 addr show enp0s31f6 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+TS_IP=$(tailscale ip -4)
+
+# Create K3s config
+sudo tee /etc/rancher/k3s/config.yaml > /dev/null <<EOF
+node-ip: ${LOCAL_IP}
+flannel-iface: enp0s31f6
+advertise-address: ${TS_IP}
+tls-san:
+  - ${LOCAL_IP}
+  - ${TS_IP}
+disable:
+  - traefik
+write-kubeconfig-mode: "0644"
+EOF
 
 # Install K3s
-multipass exec k3s-master -- bash -c "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='server \
-  --node-ip ${MASTER_IP} \
-  --node-external-ip ${MASTER_IP} \
-  --flannel-iface tailscale0 \
-  --disable traefik \
-  --write-kubeconfig-mode 644' sh -"
+curl -sfL https://get.k3s.io | sh -
 
-# Get node token
-NODE_TOKEN=$(multipass exec k3s-master -- sudo cat /var/lib/rancher/k3s/server/node-token)
-echo "Node Token: $NODE_TOKEN"
+# Verify installation
+sudo kubectl get nodes
 ```
 
-**Manual:** Disable key expiry in Tailscale Admin Console for `k3s-master`.
+### Configure kubectl (From Remote Machine)
 
-## Step 2: GPU Worker (Windows WSL2)
-
-Run in PowerShell (Admin):
-```powershell
-wsl --install -d Ubuntu-22.04
-```
-
-Run in WSL2 Ubuntu:
 ```bash
-# Install Tailscale
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up --authkey ${TS_AUTH_KEY} --hostname=k3s-worker-gpu
-WORKER_IP=$(tailscale ip -4)
+# Copy kubeconfig from k3s-master
+scp k3s-master:/etc/rancher/k3s/k3s.yaml ~/.kube/config-homebrain
 
-# Install NFS client
-sudo apt-get update && sudo apt-get install -y nfs-common
+# Update server address to Tailscale IP
+TS_IP=100.81.236.27  # Replace with actual Tailscale IP
+sed -i "s|127.0.0.1|${TS_IP}|g" ~/.kube/config-homebrain
 
-# Join cluster (use MASTER_IP and NODE_TOKEN from Step 1)
-curl -sfL https://get.k3s.io | \
-  K3S_URL="https://${MASTER_IP}:6443" \
-  K3S_TOKEN="${NODE_TOKEN}" \
-  INSTALL_K3S_EXEC="agent \
-    --node-external-ip=${WORKER_IP} \
-    --flannel-iface=tailscale0 \
-    --kubelet-arg=eviction-hard=imagefs.available<1% \
-    --kubelet-arg=eviction-hard=nodefs.available<1%" sh -
-```
-
-**Manual:** Disable key expiry in Tailscale Admin Console for `k3s-worker-gpu`.
-
-## Step 3: Compute Worker (Lenovo X1 Extreme Gen2)
-
-Run on Ubuntu 22.04:
-```bash
-# Install Tailscale
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up --hostname=k3s-worker-extreme
-WORKER_IP=$(tailscale ip -4)
-
-# Install NFS client
-sudo apt-get update && sudo apt-get install -y nfs-common
-
-# Join cluster (use MASTER_IP and NODE_TOKEN from Step 1)
-curl -sfL https://get.k3s.io | \
-  K3S_URL="https://${MASTER_IP}:6443" \
-  K3S_TOKEN="${NODE_TOKEN}" \
-  INSTALL_K3S_EXEC="agent \
-    --node-external-ip=${WORKER_IP} \
-    --flannel-iface=tailscale0" sh -
-```
-
-**Manual:** Disable key expiry in Tailscale Admin Console for `k3s-worker-extreme`.
-
-**Enable GPU support (X1 has GTX 1650 Mobile):**
-```bash
-# Install NVIDIA driver
-sudo apt-get update
-sudo apt-get install -y nvidia-driver-535
-
-# Install NVIDIA Container Toolkit
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt-get update
-sudo apt-get install -y nvidia-container-toolkit libnvidia-ml-dev
-
-# Configure containerd
-sudo nvidia-ctk runtime configure --runtime=containerd --config=/var/lib/rancher/k3s/agent/etc/containerd/config.toml
-sudo systemctl restart k3s-agent
-
-# Verify driver
-nvidia-smi
-```
-
-On your Mac, install GPU Operator:
-```bash
-helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
-helm install gpu-operator nvidia/gpu-operator \
-  --namespace gpu-operator \
-  --create-namespace \
-  --set driver.enabled=false \
-  --set toolkit.enabled=false
-
-# Verify GPU detected
-kubectl get node k3s-worker-extreme -o json | jq '.status.capacity."nvidia.com/gpu"'
-```
-
-## Step 4: NFS Storage (Synology DS923+)
-
-**Synology DSM Manual Steps:**
-1. Control Panel → File Services → Enable NFS (NFSv4.1)
-2. Control Panel → Shared Folder → Create `k3s-data`
-3. Edit folder → NFS Permissions:
-   - Hostname: `*` or `100.64.0.0/10`
-   - Privilege: Read/Write
-   - Squash: Map all users to admin
-   - Enable: Allow non-privileged ports
-
-**Install NFS Provisioner:**
-```bash
-helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
-
-helm install nfs-storage nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
-  --namespace nfs-storage \
-  --create-namespace \
-  --set nfs.server=192.168.x.x \
-  --set nfs.path=/volume1/k3s-data \
-  --set storageClass.name=nfs-client
-```
-
-## Step 5: Verification
-
-**Configure kubectl access:**
-```bash
-multipass exec k3s-master -- sudo cat /etc/rancher/k3s/k3s.yaml > ~/.kube/config-homebrain
-sed -i '' "s/127.0.0.1/$(multipass exec k3s-master -- tailscale ip -4)/g" ~/.kube/config-homebrain
+# Use the config
 export KUBECONFIG=~/.kube/config-homebrain
-kubectl get nodes -o wide
+kubectl get nodes
 ```
 
-**Test NFS:**
+## Verification
+
+### Check Node Status
 ```bash
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: test-nfs
-spec:
-  storageClassName: nfs-client
-  accessModes: [ReadWriteMany]
-  resources:
-    requests:
-      storage: 1Gi
-EOF
-kubectl get pvc test-nfs
-kubectl delete pvc test-nfs
+kubectl get nodes -o wide
+# Should show k3s-master Ready with 3 IP addresses
+
+kubectl describe node k3s-master | grep -E "Addresses|nvidia.com/gpu"
+```
+
+### Check CIFS Mounts
+```bash
+ssh k3s-master "mount | grep cifs"
+# Should show all 9 CIFS mounts
+```
+
+### Check GPU
+```bash
+ssh k3s-master "nvidia-smi"
+kubectl get nodes -o json | jq '.items[0].status.allocatable."nvidia.com/gpu"'
+# Should show "4" (time-slicing enabled)
 ```
 
 ## Troubleshooting
 
-**Worker not joining:**
+### Metrics Server Not Working
+
+**Symptom:** `kubectl top nodes` fails
+
+**Solution:** Ensure kubelet listens on all interfaces:
 ```bash
-ping -c 3 $MASTER_IP  # Test connectivity
-sudo journalctl -u k3s-agent -f  # Check logs
+# Check /etc/rancher/k3s/config.yaml - should NOT have bind-address
+sudo systemctl restart k3s
 ```
 
-**WSL2 disk capacity error:**
-Add to agent install: `--kubelet-arg=eviction-hard=imagefs.available<1% --kubelet-arg=eviction-hard=nodefs.available<1%`
+### Network Failover (Ethernet → WiFi)
 
-**NFS mount fails:**
+**Known Limitation:** Cloudflare Tunnel requires Ethernet.
+
+**During Ethernet failure:**
+- ✅ Tailscale access works
+- ❌ Cloudflare Tunnel down
+
+### K3s Won't Shut Down
+
+**Cause:** Loki blocking filesystem
+
+**Solution:**
 ```bash
-sudo apt-get install -y nfs-common
-sudo systemctl restart k3s-agent
+kubectl scale statefulset loki -n monitoring --replicas=0
+sudo systemctl stop k3s
 ```
 
-**Reset node:**
-```bash
-kubectl delete node <node-name>  # On master
-sudo /usr/local/bin/k3s-agent-uninstall.sh  # On worker
+## Persistent Storage Configuration
+
+### Storage Classes
+
+**local-path (default):** Single-node local storage
+- Path: `/var/lib/rancher/k3s/storage/`
+- AccessMode: ReadWriteOnce
+
+**External:** NAS CIFS mounts
+- Server: 192.168.0.243
+- Protocol: SMB 3.1.1
+
+### Immich Storage Layout
+
+| PVC | Size | Purpose | StorageClass |
+|-----|------|---------|--------------|
+| immich-library-pvc | 1Ti | User uploads, thumbnails | local-path |
+| immich-upload-pvc | 1Ti | Upload staging | local-path |
+| immich-ml-cache-pvc | 20Gi | ML models (CLIP, face detection) | local-path |
+| immich-redis-pvc | 5Gi | Job queues (AOF persistence) | local-path |
+
+**External Libraries:** Mounted via CIFS from NAS (read-only hostPath)
+
+### Redis Configuration
+
+Immich uses Redis with AOF (Append-Only File) persistence:
+- **fsync:** Every second (`--appendfsync everysec`)
+- **Data durability:** 1 second max data loss on crash
+- **Purpose:** Preserves job queues (thumbnail generation, face recognition, smart search)
+
+```yaml
+command:
+  - redis-server
+  - --appendonly
+  - "yes"
+  - --appendfsync
+  - everysec
 ```
+
+### ML Cache Persistence
+
+Machine Learning models persist across restarts:
+- **CLIP models:** ViT-B-32 (visual embeddings for smart search)
+- **Face detection:** RetinaFace, ArcFace
+- **Benefits:** Eliminates 19-second model download on pod restart
+- **Cache invalidation:** Manual - delete PVC to re-download models
+
+**Check cache usage:**
+```bash
+kubectl exec -n immich -it $(kubectl get pod -n immich -l app=immich-machine-learning -o name) -- du -sh /cache
+```
+
+## See Also
+- [GPU Configuration](03-gpu-configuration.md)
+- [Cloudflare Tunnel](02-cloudflare-tunnel.md)
