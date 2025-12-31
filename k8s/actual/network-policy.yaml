@@ -11,7 +11,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-tailscale
+  name: allow-cloudflare-and-tailscale
   namespace: actual
 spec:
   podSelector:
@@ -20,6 +20,13 @@ spec:
   policyTypes:
   - Ingress
   ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cloudflare
+    ports:
+    - protocol: TCP
+      port: 5006
   - from:
     - podSelector:
         matchLabels:
@@ -59,9 +66,7 @@ spec:
   - to:
     - namespaceSelector: {}
   - to:
-    - podSelector: {}
-  - ports:
-    - protocol: TCP
-      port: 443
-    - protocol: TCP
-      port: 80
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 169.254.169.254/32
