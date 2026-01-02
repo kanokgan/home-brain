@@ -59,9 +59,21 @@ spec:
         configMap:
           name: loki-config
       - name: loki-storage
-        hostPath:
-          path: /mnt/loki-logs
-          type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: loki-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 100Gi
 ---
 apiVersion: v1
 kind: Service
