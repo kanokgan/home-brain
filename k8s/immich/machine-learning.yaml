@@ -36,7 +36,7 @@ spec:
           limits:
             nvidia.com/gpu: "1"
             memory: "8Gi"
-            cpu: "2000m"
+            cpu: "4000m"
       volumes:
       - name: cache
         persistentVolumeClaim:

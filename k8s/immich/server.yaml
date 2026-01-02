@@ -97,10 +97,10 @@ spec:
         resources:
           requests:
             memory: "2Gi"
-            cpu: "250m"
+            cpu: "500m"
           limits:
             memory: "16Gi"
-            cpu: "2000m"
+            cpu: "6000m"
             nvidia.com/gpu: "1"
       volumes:
       - name: tailscale-state
