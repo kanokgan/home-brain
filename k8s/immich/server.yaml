@@ -96,10 +96,10 @@ spec:
           readOnly: true
         resources:
           requests:
-            memory: "1Gi"
+            memory: "2Gi"
             cpu: "250m"
           limits:
-            memory: "8Gi"
+            memory: "16Gi"
             cpu: "2000m"
             nvidia.com/gpu: "1"
       volumes:
