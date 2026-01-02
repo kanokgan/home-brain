@@ -17,6 +17,7 @@ spec:
     spec:
       serviceAccountName: immich
       automountServiceAccountToken: true
+      runtimeClassName: nvidia
       containers:
       - name: tailscale
         image: tailscale/tailscale:latest
