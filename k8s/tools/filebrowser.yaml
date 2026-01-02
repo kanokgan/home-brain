@@ -74,6 +74,8 @@ spec:
         - name: nrop
           mountPath: /srv/nrop
           readOnly: true
+        - name: k3s-storage
+          mountPath: /srv/k3s-storage
         - name: database
           mountPath: /database
         - name: config
@@ -111,6 +113,10 @@ spec:
       - name: ssd
         hostPath:
           path: /mnt/ssd
+          type: Directory
+      - name: k3s-storage
+        hostPath:
+          path: /var/lib/rancher/k3s/storage
           type: Directory
       - name: kanokgan-drive
         nfs:
