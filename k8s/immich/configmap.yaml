@@ -11,3 +11,4 @@ data:
   IMMICH_WEB_URL: http://immich.home.local
   IMMICH_SERVER_URL: http://immich.home.local/api
   IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+  TZ: Asia/Bangkok
