@@ -31,11 +31,11 @@ spec:
         resources:
           requests:
             nvidia.com/gpu: "1"
-            memory: "2Gi"
+            memory: "3Gi"
             cpu: "500m"
           limits:
             nvidia.com/gpu: "1"
-            memory: "8Gi"
+            memory: "12Gi"
             cpu: "4000m"
       volumes:
       - name: cache
