@@ -1,0 +1,90 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-kanokgan-001
+  namespace: immich
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: k3s-master
+      initContainers:
+      - name: wait-for-immich
+        image: busybox:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for immich-server to be ready..."
+          until nc -z immich-server 80; do
+            echo "Immich server not ready, waiting 5s..."
+            sleep 5
+          done
+          echo "Immich server is ready!"
+      containers:
+      - name: immich-cli
+        image: node:20-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "==================================="
+          echo "Immich Bulk Upload Job"
+          echo "==================================="
+          echo "Installing Immich CLI..."
+          apk add --no-cache curl
+          npm install -g @immich/cli
+          
+          export IMMICH_INSTANCE_URL=http://immich-server/api
+          export IMMICH_API_KEY="${API_KEY}"
+          
+          echo ""
+          echo "Upload Configuration:"
+          echo "  Source: ${UPLOAD_PATH}"
+          echo "  Album: ${ALBUM_NAME:-'(none - folder structure preserved)'}"
+          echo "  Concurrency: 8"
+          echo "  Duplicate detection: enabled (hash check)"
+          echo ""
+          
+          # Upload with options
+          immich upload \
+            --recursive \
+            ${ALBUM_NAME:+--album "$ALBUM_NAME"} \
+            --concurrency 8 \
+            "${UPLOAD_PATH}"
+          
+          echo ""
+          echo "==================================="
+          echo "Upload completed successfully!"
+          echo "==================================="
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: immich-api-keys
+              key: kanokgan-api-key
+        - name: UPLOAD_PATH
+          value: "/photos"
+        - name: ALBUM_NAME
+          value: ""
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        volumeMounts:
+        - name: photos
+          mountPath: /photos
+          readOnly: true
+      volumes:
+      - name: photos
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/KanokganDrive/Photos  # Adjust to your actual path
+          readOnly: true
