@@ -1,29 +1,16 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: upload-kanokgan-001
+  name: kanokgan-upload-job-001  # Change to: upload-username-001, increment for new runs
   namespace: immich
 spec:
   backoffLimit: 3
-  ttlSecondsAfterFinished: 3600
+  ttlSecondsAfterFinished: 3600  # Auto-delete after 1 hour
   template:
     spec:
       restartPolicy: OnFailure
       nodeSelector:
-        kubernetes.io/hostname: k3s-master
-      initContainers:
-      - name: wait-for-immich
-        image: busybox:latest
-        command:
-        - sh
-        - -c
-        - |
-          echo "Waiting for immich-server to be ready..."
-          until nc -z immich-server 80; do
-            echo "Immich server not ready, waiting 5s..."
-            sleep 5
-          done
-          echo "Immich server is ready!"
+        kubernetes.io/hostname: k3s-master  # Run on master node
       containers:
       - name: immich-cli
         image: node:20-alpine
@@ -66,11 +53,11 @@ spec:
           valueFrom:
             secretKeyRef:
               name: immich-api-keys
-              key: kanokgan-api-key
+              key: kanokgan-api-key  # CHANGE: username matching your API key
         - name: UPLOAD_PATH
           value: "/photos"
         - name: ALBUM_NAME
-          value: ""
+          value: ""  # OPTIONAL: Set album name or leave empty
         resources:
           requests:
             cpu: 500m
@@ -86,5 +73,5 @@ spec:
       - name: photos
         nfs:
           server: 192.168.0.243
-          path: /volume1/KanokganDrive/Photos  # Adjust to your actual path
+          path: /volume1/CameraUploads/Archived  # CHANGE: NAS path to photos
           readOnly: true

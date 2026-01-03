@@ -8,9 +8,10 @@ These jobs run inside k3s-master and upload photos directly from NAS to Immich.
 2. Create the secret:
 
 ```bash
+kubectl delete secret immich-api-keys -n immich
 kubectl create secret generic immich-api-keys -n immich \
-  --from-literal=kanokgan-api-key=YOUR_KEY_HERE \
-  --from-literal=user2-api-key=YOUR_KEY_HERE
+  --from-literal=kanokgan-api-key="key1" \
+  --from-literal=jongdee-api-key="key2"
 ```
 
 Or update existing secret:

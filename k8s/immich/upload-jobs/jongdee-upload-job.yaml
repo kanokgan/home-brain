@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: upload-CHANGEME-001  # Change to: upload-username-001, increment for new runs
+  name: jongdee-upload-job-001  # Change to: upload-username-001, increment for new runs
   namespace: immich
 spec:
   backoffLimit: 3
@@ -11,19 +11,6 @@ spec:
       restartPolicy: OnFailure
       nodeSelector:
         kubernetes.io/hostname: k3s-master  # Run on master node
-      initContainers:
-      - name: wait-for-immich
-        image: busybox:latest
-        command:
-        - sh
-        - -c
-        - |
-          echo "Waiting for immich-server to be ready..."
-          until nc -z immich-server 80; do
-            echo "Immich server not ready, waiting 5s..."
-            sleep 5
-          done
-          echo "Immich server is ready!"
       containers:
       - name: immich-cli
         image: node:20-alpine
@@ -66,7 +53,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: immich-api-keys
-              key: USERNAME-api-key  # CHANGE: username matching your API key
+              key: jongdee-api-key  # CHANGE: username matching your API key
         - name: UPLOAD_PATH
           value: "/photos"
         - name: ALBUM_NAME
@@ -86,5 +73,5 @@ spec:
       - name: photos
         nfs:
           server: 192.168.0.243
-          path: /volume1/CHANGE/THIS/PATH  # CHANGE: NAS path to photos
+          path: /volume1/JongdeeDrive/CameraUploads  # CHANGE: NAS path to photos
           readOnly: true
