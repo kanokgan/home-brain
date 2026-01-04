@@ -9,15 +9,46 @@ global:
 controller:
   nodeSelector:
     kubernetes.io/hostname: k3s-master
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
 repoServer:
   nodeSelector:
     kubernetes.io/hostname: k3s-master
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+
 server:
   nodeSelector:
     kubernetes.io/hostname: k3s-master
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+
 redis:
   nodeSelector:
     kubernetes.io/hostname: k3s-master
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
 
 # 3. Disable HA (High Availability) for Home Lab
 redis-ha:
