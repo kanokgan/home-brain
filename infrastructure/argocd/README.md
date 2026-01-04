@@ -2,9 +2,19 @@
 
 ## Current Status
 
-ArgoCD is installed and accessible via Tailscale, but **not actively managing applications**. All deployments are handled manually via `kubectl apply`.
+✅ **Active GitOps:** ArgoCD is installed and actively managing applications via automated sync from GitHub.
 
-**Tailscale Access**: https://argocd-1.dove-komodo.ts.net
+**Access:**
+- **Tailscale:** https://argocd-1.dove-komodo.ts.net
+- **Cloudflare:** https://argocd.kanokgan.com
+
+**Managed Applications:**
+- ✅ **homebrain-api** - Service health monitoring API (deployed to k3s-worker)
+
+**Future Applications:**
+- 🔄 Immich (manual for now)
+- 🔄 Jellyfin (manual for now)
+- 🔄 Monitoring stack (manual for now)
 
 ## Installation
 
@@ -82,4 +92,58 @@ kubectl get svc -n argocd
 
 ## Application Deployment
 
-Applications are managed via manifests in `apps/` directory. Each application is deployed as an ArgoCD Application CRD.
+Applications are managed via manifests in `apps/` directory. Each application is deployed as an ArgoCD Application CRD with automated sync enabled.
+
+### Deploy a New Application
+
+1. **Create ArgoCD Application manifest:**
+```yaml
+# Example: apps/my-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kanokgan/home-brain
+    targetRevision: main
+    path: k8s/my-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: my-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+```
+
+2. **Apply the application:**
+```bash
+kubectl apply -f infrastructure/argocd/apps/my-app.yaml
+```
+
+3. **Watch deployment:**
+```bash
+kubectl get application -n argocd
+kubectl describe application -n argocd my-app
+```
+
+### Currently Deployed Applications
+
+#### homebrain-api
+- **Manifest:** `apps/homebrain-api.yaml`
+- **Source Path:** `k8s/backend`
+- **Namespace:** `homebrain`
+- **Target Node:** k3s-worker (ARM64)
+- **Sync Policy:** Automated (prune + selfHeal)
+- **Status:** ✅ Healthy and Synced
+
+**View status:**
+```bash
+kubectl get application -n argocd homebrain-api
+kubectl get pods -n homebrain -o wide
+```

@@ -3,51 +3,86 @@
 | Field | Value |
 |-------|-------|
 | Status | Active |
-| Version | v1.33.6+k3s1 |
-| Updated | 2026-01-01 |
-| Architecture | Single-node bare metal |
-| Hardware | Lenovo X1 Extreme Gen2 |
+| Version | k3s-master: v1.33.6+k3s1, k3s-worker: v1.34.3+k3s1 |
+| Updated | 2026-01-04 |
+| Architecture | Dual-node: Control plane + worker |
+| Hardware | Lenovo X1 Extreme Gen2 + Mac Mini M2 |
 
 ## Overview
 
-Home-brain runs on a single-node K3s cluster with hybrid networking:
-- **Primary network:** Ethernet 192.168.0.206 (node-ip, Cloudflare Tunnel)
-- **Backup network:** WiFi 192.168.0.189 (automatic failover)
-- **Remote access:** Tailscale 100.81.236.27 (advertise-address)
+Home-brain runs on a dual-node K3s cluster with workload specialization:
+- **k3s-master:** Control plane + GPU workloads (Immich, Jellyfin)
+- **k3s-worker:** API services + future LLM inference (ARM64)
 
-**Note:** Cloudflare Tunnel requires Ethernet due to K3s hardcoded `node-ip` and `flannel-iface` bindings. WiFi failover works for Tailscale access only.
+**Networking:**
+- **k3s-master:** Ethernet 192.168.0.206 (node-ip, Cloudflare Tunnel), WiFi 192.168.0.189 (failover), Tailscale 100.81.236.27
+- **k3s-worker:** OrbStack VM networking via Mac Mini host, Tailscale mesh
+
+**Note:** Cloudflare Tunnel requires Ethernet on k3s-master due to K3s hardcoded `node-ip` and `flannel-iface` bindings.
 
 ## Current Infrastructure
 
-### Node: k3s-master
+### Node: k3s-master (Control Plane)
 - **Hostname:** k3s-master
-- **OS:** Ubuntu 24.04.3 LTS
+- **OS:** Ubuntu 24.04.3 LTS (Bare Metal)
 - **Kernel:** 6.8.0-90-generic
-- **CPU:** 12 cores (Intel Core i7-9750H)
+- **CPU:** 12 cores (Intel Core i7-9750H, x86_64)
 - **RAM:** 32GB
 - **GPU:** NVIDIA GeForce GTX 1650 Mobile (4GB VRAM)
+- **K3s Version:** v1.33.6+k3s1
+- **Role:** Control plane + GPU-intensive workloads
 - **Storage:** 
   - Local NVMe SSD for system + K3s storage
   - NAS: Synology DS923+ (192.168.0.243) via CIFS/SMB
 
+### Node: k3s-worker
+- **Hostname:** k3s-worker
+- **OS:** Ubuntu 24.04 (OrbStack VM on macOS)
+- **Host:** Mac Mini M2 (2023)
+- **CPU:** 4 cores (Apple Silicon M2, ARM64)
+- **RAM:** 8GB
+- **K3s Version:** v1.34.3+k3s1
+- **Role:** Worker node for API services and LLM workloads
+- **Container Runtime:** OrbStack (lightweight alternative to Docker Desktop)
+- **Node Labels:**
+  - `workload-type=api-llm`
+  - `kubernetes.io/arch=arm64`
+
 ### Network Configuration
 
-#### Ethernet (Primary)
+#### k3s-master Network
+
+##### Ethernet (Primary)
 - **Interface:** enp0s31f6
 - **IP:** 192.168.0.206
 - **Usage:** K3s cluster traffic, Cloudflare Tunnel
 
-#### WiFi (Backup)
+##### WiFi (Backup)
 - **Interface:** wlp82s0
 - **IP:** 192.168.0.189
 - **Usage:** Automatic failover (Tailscale only)
 
-#### Tailscale (Remote Access)
+##### Tailscale (Remote Access)
 - **Interface:** tailscale0
 - **IP:** 100.81.236.27
 - **Usage:** Remote kubectl access, service access
 
+#### k3s-worker Network
+
+##### OrbStack VM Networking
+- **Type:** NAT through Mac Mini host
+- **Interface:** eth0
+- **IP:** Dynamic (managed by OrbStack)
+- **Usage:** Kubernetes pod network, inter-node communication
+
+##### Tailscale (Remote Access)
+- **Interface:** tailscale0
+- **IP:** Dynamic (100.x.x.x range)
+- **Usage:** Remote access, service mesh
+
 ### K3s Configuration
+
+#### k3s-master Configuration
 
 **File:** `/etc/rancher/k3s/config.yaml`
 
@@ -61,6 +96,23 @@ tls-san:
 disable:
   - traefik
 write-kubeconfig-mode: "0644"
+```
+
+#### k3s-worker Configuration
+
+**Installation command on OrbStack Ubuntu VM:**
+
+```bash
+# Get K3s token from master
+K3S_TOKEN=$(ssh k3s-master "sudo cat /var/lib/rancher/k3s/server/node-token")
+K3S_URL="https://100.81.236.27:6443"  # Master's Tailscale IP
+
+# Install k3s agent
+curl -sfL https://get.k3s.io | K3S_URL="${K3S_URL}" K3S_TOKEN="${K3S_TOKEN}" sh -
+
+# Apply node labels
+kubectl label node k3s-worker workload-type=api-llm
+kubectl label node k3s-worker kubernetes.io/arch=arm64
 ```
 
 ### Storage Configuration
@@ -155,9 +207,29 @@ kubectl get nodes
 ### Check Node Status
 ```bash
 kubectl get nodes -o wide
-# Should show k3s-master Ready with 3 IP addresses
+# Should show:
+# - k3s-master: Ready, v1.33.6+k3s1 (x86_64)
+# - k3s-worker: Ready, v1.34.3+k3s1 (arm64)
 
 kubectl describe node k3s-master | grep -E "Addresses|nvidia.com/gpu"
+kubectl describe node k3s-worker | grep -E "Addresses|Labels"
+```
+
+### Verify Node Labels
+```bash
+kubectl get nodes --show-labels | grep -E "workload-type|kubernetes.io/arch"
+# k3s-worker should have: workload-type=api-llm, kubernetes.io/arch=arm64
+```
+
+### Check Deployed Workloads
+```bash
+# GPU workloads on k3s-master
+kubectl get pods -n immich -o wide
+kubectl get pods -n jellyfin -o wide
+
+# API workloads on k3s-worker
+kubectl get pods -n homebrain -o wide
+# homebrain-api pod should be scheduled on k3s-worker
 ```
 
 ### Check CIFS Mounts
