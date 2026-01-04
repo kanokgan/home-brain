@@ -1,30 +1,79 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: home-brain-backend
-  namespace: default
+  name: homebrain-api
+  namespace: homebrain
   labels:
-    app: home-brain-backend
+    app: homebrain-api
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
-      app: home-brain-backend
+      app: homebrain-api
   template:
     metadata:
       labels:
-        app: home-brain-backend
+        app: homebrain-api
     spec:
+      # Target Mac Mini worker node (ARM64)
+      nodeSelector:
+        workload-type: api-llm
+        kubernetes.io/arch: arm64
       containers:
         - name: api
-          image: ghcr.io/kanokgan/home-brain-backend:latest
+          image: ghcr.io/kanokgan/homebrain-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+              name: http
+          env:
+          - name: GIN_MODE
+            value: "release"
+          - name: TZ
+            value: "Asia/Bangkok"
           # Health Checks (Senior Engineers always include these)
-          livenessProbe:
+          readinessProbe:
             httpGet:
               path: /health
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homebrain-api
+  namespace: homebrain
+  labels:
+    app: homebrain-api
+spec:
+  type: ClusterIP
+  selector:
+    app: homebrain-api
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http

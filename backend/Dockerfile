@@ -1,5 +1,8 @@
-# Build Stage
-FROM golang:1.24-alpine AS builder
+# Multi-arch Build Stage
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app
 
@@ -10,12 +13,13 @@ RUN go mod download
 # Copy source
 COPY . .
 
-# Build API (Static binary)
+# Build API for target platform (Static binary)
 # CGO_ENABLED=0 ensures it runs on any Linux distro (Alpine/Ubuntu/Scratch)
-RUN CGO_ENABLED=0 GOOS=linux go build -o home-brain-api ./cmd/server
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -ldflags="-w -s" -o home-brain-api ./cmd/server
 
 # Run Stage (Distroless for security - smaller than Alpine)
-FROM gcr.io/distroless/static-debian12
+FROM --platform=$TARGETPLATFORM gcr.io/distroless/static-debian12
 
 WORKDIR /root/
 
