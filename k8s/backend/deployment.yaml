@@ -25,6 +25,37 @@ spec:
         workload-type: api-llm
         kubernetes.io/arch: arm64
       containers:
+        - name: tailscale
+          image: tailscale/tailscale:latest
+          env:
+          - name: TS_AUTHKEY
+            valueFrom:
+              secretKeyRef:
+                name: tailscale-auth
+                key: TS_AUTHKEY
+          - name: TS_HOSTNAME
+            value: "homebrain-api"
+          - name: TS_STATE_DIR
+            value: "/var/lib/tailscale"
+          - name: TS_USERSPACE
+            value: "true"
+          - name: TS_SERVE_CONFIG
+            value: "/config/serve.json"
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+          - name: tailscale-state
+            mountPath: /var/lib/tailscale
+          - name: tailscale-config
+            mountPath: /config
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
         - name: api
           image: ghcr.io/kanokgan/homebrain-api:latest
           imagePullPolicy: Always
@@ -60,6 +91,13 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "1000m"
+      volumes:
+      - name: tailscale-state
+        persistentVolumeClaim:
+          claimName: tailscale-state
+      - name: tailscale-config
+        configMap:
+          name: tailscale-serve-config
 ---
 apiVersion: v1
 kind: Service
