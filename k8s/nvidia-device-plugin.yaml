@@ -1,3 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-device-plugin-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    version: v1
+    flags:
+      deviceDiscoveryStrategy: "nvml"
+      migStrategy: "none"
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -21,37 +33,24 @@ spec:
         effect: NoSchedule
       priorityClassName: "system-node-critical"
       containers:
-      - image: nvcr.io/nvidia/k8s-device-plugin:v0.14.0
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.0
         name: nvidia-device-plugin-ctr
+        args:
+          - "--config-file=/config/config.yaml"
         env:
           - name: FAIL_ON_INIT_ERROR
             value: "false"
-          - name: NVIDIA_MIG_MONITOR_DEVICES
-            value: "all"
-          - name: PASS_DEVICE_SPECS
-            value: "true"
-          - name: CONFIG_FILE
-            value: /config/config.yaml
         securityContext:
-          allowPrivilegeEscalation: true
-          capabilities:
-            add: ["SYS_ADMIN"]
+          privileged: true
         volumeMounts:
         - name: device-plugin
           mountPath: /var/lib/kubelet/device-plugins
-        - name: host-root
-          mountPath: /host
         - name: config
           mountPath: /config
       volumes:
       - name: device-plugin
         hostPath:
           path: /var/lib/kubelet/device-plugins
-      - name: host-root
-        hostPath:
-          path: /
       - name: config
         configMap:
           name: nvidia-device-plugin-config
-      nodeSelector:
-        nvidia.com/gpu: "true"

@@ -1,0 +1,70 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: video-transcode
+  namespace: media-transcode
+  labels:
+    app: video-transcode
+spec:
+  # Run 3 pods in parallel to maximize GPU utilization
+  parallelism: 3
+  completions: 3
+  # Don't automatically retry on failure
+  backoffLimit: 0
+  # Clean up after 24 hours
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: video-transcode
+    spec:
+      restartPolicy: Never
+      runtimeClassName: nvidia
+      nodeSelector:
+        kubernetes.io/hostname: k3s-gpu
+      containers:
+      - name: ffmpeg
+        # Using NVIDIA CUDA ffmpeg image for GPU encoding
+        image: jrottenberg/ffmpeg:6.1-nvidia
+        command: ["/bin/sh", "/scripts/transcode.sh"]
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        volumeMounts:
+        - name: raw-media
+          mountPath: /media/source
+        - name: converted-media
+          mountPath: /media/destination
+        - name: transcode-script
+          mountPath: /scripts
+        - name: nvidia-libs
+          mountPath: /usr/local/nvidia/lib64
+          readOnly: true
+        env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,video,utility"
+        - name: LD_LIBRARY_PATH
+          value: "/usr/local/nvidia/lib64:/usr/lib/x86_64-linux-gnu"
+      volumes:
+      - name: raw-media
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/VideoConverter/Source
+      - name: converted-media
+        nfs:
+          server: 192.168.0.243
+          path: /volume1/VideoConverter/Destination
+      - name: transcode-script
+        configMap:
+          name: transcode-script
+          defaultMode: 0755
+      - name: nvidia-libs
+        hostPath:
+          path: /usr/lib/wsl/lib
+          type: Directory

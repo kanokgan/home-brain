@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: transcode-script
+  namespace: media-transcode
+data:
+  transcode.sh: |
+    #!/bin/sh
+    
+    INPUT_DIR="/media/source"
+    OUTPUT_DIR="/media/destination"
+    
+    echo "==================================="
+    echo "Video Transcoding Job Started"
+    echo "==================================="
+    echo "Input directory: $INPUT_DIR"
+    echo "Output directory: $OUTPUT_DIR"
+    echo "Date: $(date)"
+    echo ""
+    
+    # Create output directory if it doesn't exist
+    mkdir -p "$OUTPUT_DIR"
+    
+    # Counter for processed files
+    PROCESSED=0
+    SKIPPED=0
+    FAILED=0
+    TOTAL=0
+    
+    # Count total files first
+    echo "📊 Scanning for video files..."
+    TOTAL=$(find "$INPUT_DIR" -type f \( \
+      -iname "*.mkv" -o \
+      -iname "*.avi" -o \
+      -iname "*.mov" -o \
+      -iname "*.wmv" -o \
+      -iname "*.flv" -o \
+      -iname "*.webm" -o \
+      -iname "*.m4v" -o \
+      -iname "*.mpg" -o \
+      -iname "*.mpeg" -o \
+      -iname "*.mp4" \
+    \) | wc -l)
+    
+    echo "Found $TOTAL video files to process"
+    echo ""
+    
+    CURRENT=0
+    
+    # Find all video files recursively in all subfolders (common formats)
+    find "$INPUT_DIR" -type f \( \
+      -iname "*.mkv" -o \
+      -iname "*.avi" -o \
+      -iname "*.mov" -o \
+      -iname "*.wmv" -o \
+      -iname "*.flv" -o \
+      -iname "*.webm" -o \
+      -iname "*.m4v" -o \
+      -iname "*.mpg" -o \
+      -iname "*.mpeg" -o \
+      -iname "*.mp4" \
+    \) | while read -r input_file; do
+      
+      CURRENT=$((CURRENT + 1))
+      
+      # Get relative path from input dir
+      relative_path="${input_file#$INPUT_DIR/}"
+      
+      # Create output filename (preserve folder structure, change extension to .mp4)
+      filename=$(basename "$input_file")
+      dirname=$(dirname "$relative_path")
+      base_name="${filename%.*}"
+      output_file="$OUTPUT_DIR/$dirname/${base_name}.mp4"
+      
+      # Create output subdirectory (preserves folder structure)
+      mkdir -p "$OUTPUT_DIR/$dirname"
+      
+      # Lock file to prevent concurrent processing by multiple pods
+      lock_file="$output_file.lock"
+      
+      # Try to create lock file (atomic operation)
+      if ! mkdir "$lock_file" 2>/dev/null; then
+        echo "[$CURRENT/$TOTAL] 🔒 SKIP: $relative_path (being processed by another pod)"
+        SKIPPED=$((SKIPPED + 1))
+        continue
+      fi
+      
+      # Skip if output already exists (delete source since output is complete)
+      if [ -f "$output_file" ]; then
+        echo "[$CURRENT/$TOTAL] ⏭️  SKIP: $relative_path (output already exists)"
+        echo "   🗑️  Deleting source file (output complete)"
+        rm "$input_file"
+        rmdir "$lock_file"
+        SKIPPED=$((SKIPPED + 1))
+        continue
+      fi
+      
+      echo ""
+      echo "[$CURRENT/$TOTAL] 🎬 Processing: $relative_path"
+      echo "   Output: $output_file"
+      
+      # Check if input is already H.264/AAC MP4
+      codec_info=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$input_file" 2>/dev/null || echo "unknown")
+      audio_codec=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$input_file" 2>/dev/null || echo "unknown")
+      
+      if [ "$codec_info" = "h264" ] && [ "$audio_codec" = "aac" ] && [ "${filename##*.}" = "mp4" ]; then
+        echo "   ℹ️  Already in correct format, moving to destination..."
+        if mv "$input_file" "$output_file"; then
+          echo "   ✅ Moved successfully (source deleted)"
+          rmdir "$lock_file"
+          SKIPPED=$((SKIPPED + 1))
+        else
+          echo "   ❌ Move failed, keeping source"
+          rmdir "$lock_file"
+          FAILED=$((FAILED + 1))
+        fi
+        continue
+      fi
+      
+      # Transcode with GPU acceleration if available
+      if ffmpeg -hwaccels 2>/dev/null | grep -q cuda; then
+        echo "   🚀 Using NVIDIA GPU acceleration (decode + encode)"
+        if ffmpeg -hide_banner -stats -nostdin \
+          -hwaccel cuda -hwaccel_output_format cuda \
+          -i "$input_file" \
+          -c:v h264_nvenc \
+          -preset p4 -tune hq -rc vbr -cq 23 -b:v 5M -maxrate 10M \
+          -c:a aac -b:a 192k -ac 2 \
+          -movflags +faststart \
+          -f mp4 \
+          "$output_file.tmp" </dev/null 2>&1; then
+          
+          mv "$output_file.tmp" "$output_file"
+          echo "   ✅ SUCCESS - Deleting source"
+          rm "$input_file"
+          rmdir "$lock_file"
+          PROCESSED=$((PROCESSED + 1))
+        else
+          echo "   ❌ FAILED - Keeping source"
+          rm -f "$output_file.tmp"
+          rmdir "$lock_file"
+          FAILED=$((FAILED + 1))
+        fi
+      else
+        echo "   💻 Using CPU encoding (no GPU detected)"
+        if ffmpeg -hide_banner -stats -nostdin \
+          -i "$input_file" \
+          -c:v libx264 -preset medium -crf 23 \
+          -c:a aac -b:a 192k -ac 2 \
+          -movflags +faststart \
+          -f mp4 \
+          "$output_file.tmp" </dev/null 2>&1; then
+          
+          mv "$output_file.tmp" "$output_file"
+          echo "   ✅ SUCCESS - Deleting source"
+          rm "$input_file"
+          rmdir "$lock_file"
+          PROCESSED=$((PROCESSED + 1))
+        else
+          echo "   ❌ FAILED - Keeping source"
+          rm -f "$output_file.tmp"
+          rmdir "$lock_file"
+          FAILED=$((FAILED + 1))
+        fi
+      fi
+    done
+    
+    echo ""
+    echo "==================================="
+    echo "Transcoding Job Complete"
+    echo "==================================="
+    echo "Processed: $PROCESSED files"
+    echo "Skipped: $SKIPPED files"
+    echo "Failed: $FAILED files"
+    echo "Note: Successfully processed files are deleted from source"
+    echo "Date: $(date)"
+    echo "==================================="
