@@ -9,17 +9,37 @@ data:
     
     INPUT_DIR="/media/source"
     OUTPUT_DIR="/media/destination"
+    FAILED_DIR="/media/destination/_failed"
+    POD_NAME="${HOSTNAME:-unknown}"
     
     echo "==================================="
     echo "Video Transcoding Job Started"
     echo "==================================="
+    echo "Pod: $POD_NAME"
     echo "Input directory: $INPUT_DIR"
     echo "Output directory: $OUTPUT_DIR"
+    echo "Failed directory: $FAILED_DIR"
     echo "Date: $(date)"
     echo ""
     
-    # Create output directory if it doesn't exist
+    # Create output directories if they don't exist
     mkdir -p "$OUTPUT_DIR"
+    mkdir -p "$FAILED_DIR"
+    
+    # Clean up stale lock files from previous failed/restarted pods
+    echo "🧹 Cleaning up stale lock files (older than 30 minutes)..."
+    stale_locks=0
+    find "$OUTPUT_DIR" -type d -name "*.lock" -mmin +30 2>/dev/null | while read -r stale_lock; do
+      echo "   Removing stale lock: $(basename "$stale_lock")"
+      rmdir "$stale_lock" 2>/dev/null || rm -rf "$stale_lock"
+      stale_locks=$((stale_locks + 1))
+    done
+    if [ "$stale_locks" -eq 0 ]; then
+      echo "   No stale locks found"
+    else
+      echo "   Cleaned $stale_locks stale locks"
+    fi
+    echo ""
     
     # Counter for processed files
     PROCESSED=0
@@ -78,6 +98,15 @@ data:
       # Lock file to prevent concurrent processing by multiple pods
       lock_file="$output_file.lock"
       
+      # Check if lock exists and is stale (older than 30 minutes = 1800 seconds)
+      if [ -d "$lock_file" ]; then
+        lock_age=$(($(date +%s) - $(stat -c %Y "$lock_file" 2>/dev/null || stat -f %m "$lock_file" 2>/dev/null || echo 0)))
+        if [ "$lock_age" -gt 1800 ]; then
+          echo "[$CURRENT/$TOTAL] 🧹 Cleaning stale lock (${lock_age}s old): $relative_path"
+          rmdir "$lock_file" 2>/dev/null || rm -rf "$lock_file"
+        fi
+      fi
+      
       # Try to create lock file (atomic operation)
       if ! mkdir "$lock_file" 2>/dev/null; then
         echo "[$CURRENT/$TOTAL] 🔒 SKIP: $relative_path (being processed by another pod)"
@@ -96,8 +125,9 @@ data:
       fi
       
       echo ""
-      echo "[$CURRENT/$TOTAL] 🎬 Processing: $relative_path"
+      echo "[$CURRENT/$TOTAL] 🎬 Processing: $relative_path (Pod: $POD_NAME)"
       echo "   Output: $output_file"
+      echo "   Started: $(date '+%H:%M:%S')"
       
       # Check if input is already H.264/AAC MP4
       codec_info=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$input_file" 2>/dev/null || echo "unknown")
@@ -131,13 +161,21 @@ data:
           "$output_file.tmp" </dev/null 2>&1; then
           
           mv "$output_file.tmp" "$output_file"
-          echo "   ✅ SUCCESS - Deleting source"
+          echo "   ✅ SUCCESS - Deleting source ($(date '+%H:%M:%S'))"
           rm "$input_file"
           rmdir "$lock_file"
           PROCESSED=$((PROCESSED + 1))
         else
-          echo "   ❌ FAILED - Keeping source"
+          echo "   ❌ FAILED - Moving to failed directory ($(date '+%H:%M:%S'))"
           rm -f "$output_file.tmp"
+          # Move failed file to failed directory to prevent infinite retries
+          failed_dest="$FAILED_DIR/$dirname"
+          mkdir -p "$failed_dest"
+          if mv "$input_file" "$failed_dest/"; then
+            echo "   📁 Moved to: $failed_dest/"
+          else
+            echo "   ⚠️  Could not move to failed directory, file remains in source"
+          fi
           rmdir "$lock_file"
           FAILED=$((FAILED + 1))
         fi
@@ -152,13 +190,21 @@ data:
           "$output_file.tmp" </dev/null 2>&1; then
           
           mv "$output_file.tmp" "$output_file"
-          echo "   ✅ SUCCESS - Deleting source"
+          echo "   ✅ SUCCESS - Deleting source ($(date '+%H:%M:%S'))"
           rm "$input_file"
           rmdir "$lock_file"
           PROCESSED=$((PROCESSED + 1))
         else
-          echo "   ❌ FAILED - Keeping source"
+          echo "   ❌ FAILED - Moving to failed directory ($(date '+%H:%M:%S'))"
           rm -f "$output_file.tmp"
+          # Move failed file to failed directory to prevent infinite retries
+          failed_dest="$FAILED_DIR/$dirname"
+          mkdir -p "$failed_dest"
+          if mv "$input_file" "$failed_dest/"; then
+            echo "   📁 Moved to: $failed_dest/"
+          else
+            echo "   ⚠️  Could not move to failed directory, file remains in source"
+          fi
           rmdir "$lock_file"
           FAILED=$((FAILED + 1))
         fi
@@ -169,9 +215,10 @@ data:
     echo "==================================="
     echo "Transcoding Job Complete"
     echo "==================================="
+    echo "Pod: $POD_NAME"
     echo "Processed: $PROCESSED files"
     echo "Skipped: $SKIPPED files"
-    echo "Failed: $FAILED files"
+    echo "Failed: $FAILED files (moved to $FAILED_DIR)"
     echo "Note: Successfully processed files are deleted from source"
     echo "Date: $(date)"
     echo "==================================="
