@@ -59,7 +59,8 @@ data:
       -iname "*.m4v" -o \
       -iname "*.mpg" -o \
       -iname "*.mpeg" -o \
-      -iname "*.mp4" \
+      -iname "*.mp4" -o \
+      -iname "*.ts" \
     \) | wc -l)
     
     echo "Found $TOTAL video files to process"
@@ -78,7 +79,8 @@ data:
       -iname "*.m4v" -o \
       -iname "*.mpg" -o \
       -iname "*.mpeg" -o \
-      -iname "*.mp4" \
+      -iname "*.mp4" -o \
+      -iname "*.ts" \
     \) | while read -r input_file; do
       
       CURRENT=$((CURRENT + 1))
