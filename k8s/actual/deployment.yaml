@@ -51,17 +51,13 @@ spec:
         - name: TS_KUBE_SECRET
           value: "actual-tailscale-state"
         - name: TS_USERSPACE
-          value: "false"
+          value: "true"
         - name: TS_HOSTNAME
           value: "actual"
         - name: TS_STATE_DIR
           value: /var/lib/tailscale
         - name: TS_SERVE_CONFIG
           value: /config/serve.json
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
         volumeMounts:
         - name: tailscale-state
           mountPath: /var/lib/tailscale
@@ -70,9 +66,8 @@ spec:
       
       volumes:
       - name: data
-        hostPath:
-          path: /mnt/ssd/actual
-          type: DirectoryOrCreate
+        persistentVolumeClaim:
+          claimName: actual-data
       - name: tailscale-state
         emptyDir: {}
       - name: tailscale-config
