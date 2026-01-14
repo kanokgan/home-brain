@@ -18,6 +18,7 @@ spec:
       serviceAccountName: immich
       automountServiceAccountToken: true
       runtimeClassName: nvidia
+      terminationGracePeriodSeconds: 60
       containers:
       - name: tailscale
         image: tailscale/tailscale:latest
@@ -45,11 +46,11 @@ spec:
           mountPath: /config
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "100m"
-          limits:
             memory: "256Mi"
-            cpu: "500m"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
       - name: immich-server
         image: ghcr.io/immich-app/immich-server:release
         ports:
@@ -71,10 +72,10 @@ spec:
           httpGet:
             path: /server-info/ping
             port: 2283
-          initialDelaySeconds: 120
-          periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 3
+          initialDelaySeconds: 600
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 5
         envFrom:
         - configMapRef:
             name: immich-config
