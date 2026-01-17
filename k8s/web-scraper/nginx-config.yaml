@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: web-scraper
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        
+        # Serve from /usr/share/nginx/html which maps to /data/scraped/{domain}
+        
+        # Enable directory listing for browsing
+        autoindex on;
+        autoindex_exact_size off;
+        autoindex_localtime on;
+        
+        # Cache images aggressively (30 days)
+        location ~* \.(jpg|jpeg|png|gif|ico|svg|webp)$ {
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # Cache CSS and JS (30 days)
+        location ~* \.(css|js)$ {
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # Cache fonts (1 year)
+        location ~* \.(woff|woff2|ttf|otf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # Cache HTML pages (1 day - in case of re-scraping)
+        location ~* \.(html|htm)$ {
+            expires 1d;
+            add_header Cache-Control "public";
+        }
+        
+        # Serve files with proper MIME types
+        location / {
+            # Try to serve the file, then index.html in that directory, then directory listing, then 404
+            try_files $uri $uri/ $uri/index.html $uri/index.htm =404;
+            
+            # Default cache for other files
+            expires 7d;
+            add_header Cache-Control "public";
+        }
+        
+        # Access log
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+    }

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web-scraper
+  labels:
+    name: web-scraper
+    app: web-scraper

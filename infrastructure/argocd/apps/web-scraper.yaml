@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: web-scraper
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kanokgan/home-brain.git  # Update with your repo URL
+    targetRevision: HEAD
+    path: k8s/web-scraper
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: web-scraper
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

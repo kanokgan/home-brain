@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: scrape-example
+  namespace: web-scraper
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: wget
+          image: alpine:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache wget
+              
+              # Set variables - REPLACE THESE VALUES
+              DOMAIN="example.com"
+              URL="https://example.com/docs/"
+              INCLUDE_DIRS="/docs/"
+              
+              # Create output directory and run from there
+              mkdir -p /data/scraped
+              cd /data/scraped
+              
+              # Run wget with convert-links to make links work offline
+              wget -r -l inf --no-parent \
+                --domains=$DOMAIN \
+                --include-directories=$INCLUDE_DIRS \
+                --page-requisites --convert-links --adjust-extension \
+                --no-clobber \
+                $URL
+              
+              echo "Scraping completed! Data stored in /data/scraped/$DOMAIN"
+              ls -lah /data/scraped/$DOMAIN
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: scraper-data
