@@ -14,7 +14,7 @@ This is a **manual scraping system** for archiving websites to your K3s cluster.
 1. You manually create a Kubernetes Job to scrape a website
 2. wget downloads all pages, images, CSS, JS with converted links for offline browsing
 3. Nginx serves the content with 30-day caching for static assets
-4. Access via Tailscale at `{sitename}-scrap.dove-komodo.ts.net`
+4. Access via Tailscale at `{sitename}-scrape.dove-komodo.ts.net`
 
 ## Key Features
 
@@ -79,7 +79,7 @@ kubectl get jobs -n web-scraper
 subPath: scraped/example.com
 
 # Line 52: Update Tailscale hostname
-value: "example-scrap"
+value: "example-scrape"
 ```
 
 **Apply changes:**
@@ -92,7 +92,7 @@ kubectl rollout restart deployment/web-scraper -n web-scraper
 
 Once deployed, access via Tailscale at:
 ```
-http://example-scrap.dove-komodo.ts.net
+http://example-scrape.dove-komodo.ts.net
 ```
 
 The site will be **blazingly fast** with 30-day browser caching!
@@ -164,12 +164,12 @@ To scrape multiple sites:
 
 3. Create separate deployments:
    - Update `subPath: scraped/site1.com`
-   - Update `TS_HOSTNAME: site1-scrap`
+   - Update `TS_HOSTNAME: site1-scrape`
    - Name deployment `web-scraper-site1`
 
 4. Access at unique subdomains:
-   - `site1-scrap.dove-komodo.ts.net`
-   - `site2-scrap.dove-komodo.ts.net`
+   - `site1-scrape.dove-komodo.ts.net`
+   - `site2-scrape.dove-komodo.ts.net`
 
 ## Future Enhancements
 
