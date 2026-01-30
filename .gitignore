@@ -94,4 +94,4 @@ pnpm-debug.log*
 .vagrant/
 
 # Helm Charts (if you download dependencies locally)
-charts/
+charts/k8s/immich/secrets.yaml
