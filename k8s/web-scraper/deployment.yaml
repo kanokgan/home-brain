@@ -26,7 +26,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /usr/share/nginx/html
-              subPath: scraped/example.com
+              subPath: scraped/humulos.com
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: default.conf
@@ -49,13 +49,13 @@ spec:
                   name: tailscale-auth
                   key: TS_AUTHKEY
             - name: TS_HOSTNAME
-              value: "example-scrap"
+              value: "humulos-scrape"
             - name: TS_STATE_DIR
               value: "/var/lib/tailscale"
             - name: TS_USERSPACE
               value: "false"
             - name: TS_ACCEPT_DNS
-              value: "true"
+              value: "false"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -66,6 +66,8 @@ spec:
                   fieldPath: metadata.uid
             - name: TS_KUBE_SECRET
               value: "tailscale"
+            - name: TS_SERVE_CONFIG
+              value: /config/serve.json
           securityContext:
             capabilities:
               add:
@@ -75,6 +77,8 @@ spec:
               mountPath: /var/lib/tailscale
             - name: dev-net-tun
               mountPath: /dev/net/tun
+            - name: tailscale-config
+              mountPath: /config
 
       volumes:
         - name: data
@@ -90,3 +94,6 @@ spec:
           hostPath:
             path: /dev/net/tun
             type: CharDevice
+        - name: tailscale-config
+          configMap:
+            name: tailscale-config

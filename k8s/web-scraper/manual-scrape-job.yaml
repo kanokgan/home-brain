@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: scrape-example
+  name: scrape-humulos
   namespace: web-scraper
 spec:
   template:
@@ -17,9 +17,9 @@ spec:
               apk add --no-cache wget
               
               # Set variables - REPLACE THESE VALUES
-              DOMAIN="example.com"
-              URL="https://example.com/docs/"
-              INCLUDE_DIRS="/docs/"
+              DOMAIN="humulos.com"
+              URL="https://humulos.com/"
+              INCLUDE_DIRS="/"
               
               # Create output directory and run from there
               mkdir -p /data/scraped

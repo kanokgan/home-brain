@@ -66,8 +66,18 @@ spec:
     ports:
     - protocol: TCP
       port: 5006
-  - ports:
+  # Allow egress to Cloudflare edge servers (any external IP)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 169.254.0.0/16
+    ports:
     - protocol: TCP
       port: 443
     - protocol: TCP
       port: 80
+    - protocol: TCP
+      port: 7844
+    - protocol: UDP
+      port: 7844

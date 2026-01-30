@@ -10,6 +10,8 @@ data:
         server_name _;
         
         # Serve from /usr/share/nginx/html which maps to /data/scraped/{domain}
+        root /usr/share/nginx/html;
+        index index.html index.htm;
         
         # Enable directory listing for browsing
         autoindex on;

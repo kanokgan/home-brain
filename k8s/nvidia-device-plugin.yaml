@@ -27,6 +27,16 @@ spec:
         name: nvidia-device-plugin-ds
     spec:
       runtimeClassName: nvidia
+      initContainers:
+      - name: nvidia-driver-installer
+        image: busybox:latest
+        command: ['sh', '-c', 'cp -r /host-libs/* /nvidia-libs/ || true']
+        volumeMounts:
+        - name: host-libs
+          mountPath: /host-libs
+          readOnly: true
+        - name: nvidia-libs
+          mountPath: /nvidia-libs
       tolerations:
       - key: nvidia.com/gpu
         operator: Exists
@@ -40,6 +50,14 @@ spec:
         env:
           - name: FAIL_ON_INIT_ERROR
             value: "false"
+          - name: NVIDIA_VISIBLE_DEVICES
+            value: "all"
+          - name: NVIDIA_DRIVER_CAPABILITIES
+            value: "all"
+          - name: NVIDIA_DISABLE_REQUIRE
+            value: "true"
+          - name: LD_LIBRARY_PATH
+            value: "/usr/lib/x86_64-linux-gnu"
         securityContext:
           privileged: true
         volumeMounts:
@@ -47,10 +65,23 @@ spec:
           mountPath: /var/lib/kubelet/device-plugins
         - name: config
           mountPath: /config
+        - name: nvidia-libs
+          mountPath: /usr/lib/x86_64-linux-gnu
+          readOnly: true
+        - name: dev
+          mountPath: /dev
       volumes:
       - name: device-plugin
+      - name: nvidia-libs
+        emptyDir: {}
+      - name: dev
+        hostPath:
+          path: /dev
         hostPath:
           path: /var/lib/kubelet/device-plugins
       - name: config
         configMap:
           name: nvidia-device-plugin-config
+      - name: nvidia-install-dir
+        hostPath:
+          path: /usr

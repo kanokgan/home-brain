@@ -52,7 +52,7 @@ spec:
             memory: "1Gi"
             cpu: "1000m"
       - name: immich-server
-        image: ghcr.io/immich-app/immich-server:release
+        image: ghcr.io/immich-app/immich-server:v2.5.2
         ports:
         - containerPort: 2283
         env:

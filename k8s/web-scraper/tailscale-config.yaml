@@ -4,9 +4,23 @@ metadata:
   name: tailscale-config
   namespace: web-scraper
 data:
-  TS_AUTHKEY: "tskey-auth-REPLACE_WITH_YOUR_AUTHKEY"
-  TS_HOSTNAME: "web-scraper"
-  TS_ROUTES: ""
-  TS_STATE_DIR: "/var/lib/tailscale"
-  TS_USERSPACE: "false"
-  TS_ACCEPT_DNS: "true"
+  serve.json: |
+    {
+      "TCP": {
+        "443": {
+          "HTTPS": true
+        }
+      },
+      "Web": {
+        "${TS_CERT_DOMAIN}:443": {
+          "Handlers": {
+            "/": {
+              "Proxy": "http://127.0.0.1:80"
+            }
+          }
+        }
+      },
+      "AllowFunnel": {
+        "${TS_CERT_DOMAIN}:443": false
+      }
+    }
