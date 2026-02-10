@@ -40,39 +40,36 @@ cat /var/log/k3s-disaster-backup.log
 
 ### 4. Deploy Automated Backup
 
-**Option A: Kubernetes CronJob (Recommended)**
+**System Crontab (Recommended)**
+
+The backup script requires direct access to k3s commands and systemctl, so it runs via system crontab instead of a Kubernetes CronJob.
 
 ```bash
-# Exit SSH, back to local machine
-exit
-
-# Load script into ConfigMap
-kubectl create configmap k3s-disaster-backup-script \
-  -n kube-system \
-  --from-file=k3s-disaster-backup.sh=./scripts/k3s-disaster-backup.sh
-
-# Deploy CronJob
-kubectl apply -f k8s/backup/k3s-disaster-backup-cronjob.yaml
-
-# Verify
-kubectl get cronjob -n kube-system k3s-disaster-backup
+# On k3s-master, add to root's crontab
+sudo crontab -e
 ```
 
-**Option B: System Crontab**
-
-```bash
-# On k3s-master
-sudo crontab -e
-
-# Add:
+Add this line:
+```cron
 0 3 * * * /root/scripts/k3s-disaster-backup.sh >> /var/log/k3s-disaster-backup.log 2>&1
+```
+
+Or add directly:
+```bash
+(sudo crontab -l 2>/dev/null; echo "0 3 * * * /root/scripts/k3s-disaster-backup.sh >> /var/log/k3s-disaster-backup.log 2>&1") | sudo crontab -
+
+# Verify crontab
+sudo crontab -l
+
+# Verify cron service
+sudo systemctl status cron
 ```
 
 ## Daily Monitoring
 
 ```bash
-# Check latest backup exists
-ls -lh /mnt/HomeBrain/backups/k3s-snapshots/latest/
+# Check latest backup directory (on k3s-master)
+ls -lh /mnt/HomeBrain/backups/k3s-snapshots/ | tail -5
 
 # Check backup log
 tail -20 /var/log/k3s-disaster-backup.log

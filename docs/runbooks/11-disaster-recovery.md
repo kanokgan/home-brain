@@ -104,32 +104,25 @@ cat /mnt/HomeBrain/backups/k3s-snapshots/latest/INVENTORY.txt
 cat /var/log/k3s-disaster-backup.log
 ```
 
-### Step 4: Deploy CronJob (Alternative to Cron)
+### Step 4: Deploy Automated Backup
 
-**Option A: Kubernetes CronJob (Recommended)**
+**System Crontab (Recommended)**
 
-```bash
-# Load backup script into ConfigMap
-kubectl create configmap k3s-disaster-backup-script \
-  -n kube-system \
-  --from-file=k3s-disaster-backup.sh=./scripts/k3s-disaster-backup.sh
-
-# Deploy CronJob
-kubectl apply -f k8s/backup/k3s-disaster-backup-cronjob.yaml
-
-# Verify
-kubectl get cronjob -n kube-system k3s-disaster-backup
-kubectl get pods -n kube-system -l app=k3s-disaster-backup
-```
-
-**Option B: Traditional Crontab**
+The backup script requires direct access to k3s commands and systemctl on the host, so it runs via system crontab instead of a Kubernetes CronJob.
 
 ```bash
-# Add to root crontab on k3s-master
+# On k3s-master, add to root crontab
 sudo crontab -e
 
-# Add this line:
+# Add this line (runs daily at 3 AM):
 0 3 * * * /root/scripts/k3s-disaster-backup.sh >> /var/log/k3s-disaster-backup.log 2>&1
+
+# Or add directly:
+(sudo crontab -l 2>/dev/null; echo "0 3 * * * /root/scripts/k3s-disaster-backup.sh >> /var/log/k3s-disaster-backup.log 2>&1") | sudo crontab -
+
+# Verify
+sudo crontab -l
+sudo systemctl status cron
 ```
 
 ### Step 5: Monitor Backups
@@ -144,9 +137,8 @@ tail -f /var/log/k3s-disaster-backup.log
 # List all backups
 ls -lh /mnt/HomeBrain/backups/k3s-snapshots/
 
-# Check CronJob status (if using Kubernetes CronJob)
-kubectl get cronjob -n kube-system k3s-disaster-backup
-kubectl logs -n kube-system -l app=k3s-disaster-backup --tail=100
+# Check crontab schedule
+sudo crontab -l
 ```
 
 ## Disaster Recovery Procedures
@@ -318,12 +310,15 @@ timeout 5 ls /mnt/HomeBrain/backups/ || echo "NAS UNREACHABLE!"
 **Check backup job status:**
 
 ```bash
-# Via CronJob
-kubectl get cronjobs -n kube-system k3s-disaster-backup
-kubectl get jobs -n kube-system | grep k3s-disaster-backup
-
-# Via log file
+# Via crontab log
 grep "Backup completed successfully" /var/log/k3s-disaster-backup.log | tail -5
+
+# Check latest backup
+ls -lht /mnt/HomeBrain/backups/k3s-snapshots/ | head -5
+
+# Verify crontab is active
+sudo crontab -l
+sudo systemctl status cron
 ```
 
 **Set up alerts (manual check for now):**
@@ -337,19 +332,14 @@ grep "Backup completed successfully" /var/log/k3s-disaster-backup.log | tail -5
 **Backup job fails:**
 
 ```bash
-# Check CronJob status
-kubectl describe cronjob k3s-disaster-backup -n kube-system
-
-# Check recent job logs
-kubectl logs -n kube-system -l app=k3s-disaster-backup --tail=200
-
-# Check system log
+# Check backup log for errors
 sudo tail -200 /var/log/k3s-disaster-backup.log
 
 # Common issues:
 # - NAS mount failed: Check /etc/fstab and mount status
 # - Permission denied: Check /mnt/HomeBrain/backups/k3s-snapshots/ permissions
-# - etcd snapshot failed: Check k3s service status
+# - k3s command not found: Check if k3s service is running
+# - Database backup failed: Check k3s service status
 ```
 
 **NAS unreachable:**
@@ -442,13 +432,7 @@ vim scripts/k3s-disaster-backup.sh
 scp scripts/k3s-disaster-backup.sh kanokgan@k3s-master:/tmp/
 ssh kanokgan@k3s-master "sudo cp /tmp/k3s-disaster-backup.sh /root/scripts/ && sudo /root/scripts/k3s-disaster-backup.sh"
 
-# 3. Update ConfigMap (if using CronJob)
-kubectl create configmap k3s-disaster-backup-script \
-  -n kube-system \
-  --from-file=k3s-disaster-backup.sh=./scripts/k3s-disaster-backup.sh \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# 4. Commit to git
+# 3. Commit to git
 git add scripts/k3s-disaster-backup.sh
 git commit -m "Update disaster recovery backup script"
 ```

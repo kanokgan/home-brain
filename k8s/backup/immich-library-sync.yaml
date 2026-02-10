@@ -4,7 +4,7 @@ metadata:
   name: immich-library-sync
   namespace: immich
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM Thailand time
+  schedule: "0 4 * * *"  # Daily at 4 AM Thailand time (after k3s backup at 3 AM)
   timeZone: "Asia/Bangkok"  # UTC+7
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -41,7 +41,7 @@ spec:
           volumes:
           - name: immich-library
             hostPath:
-              path: /var/lib/rancher/k3s/storage/pvc-b9163b19-0031-4de2-b793-de952357b49d_immich_immich-library-pvc
+              path: /var/lib/rancher/k3s/storage/pvc-5b5c0942-9cac-49c8-9a98-c86f0dfe9b1b_immich_immich-library-pvc
               type: Directory
           - name: backup-destination
             hostPath:
