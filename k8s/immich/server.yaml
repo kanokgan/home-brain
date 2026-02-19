@@ -53,6 +53,7 @@ spec:
             cpu: "1000m"
       - name: immich-server
         image: ghcr.io/immich-app/immich-server:v2
+        imagePullPolicy: Always
         ports:
         - containerPort: 2283
         env:
