@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: plex
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-plex
+  namespace: plex
+spec:
+  podSelector:
+    matchLabels:
+      app: plex
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cloudflare
+    ports:
+    - protocol: TCP
+      port: 32400
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 32400
