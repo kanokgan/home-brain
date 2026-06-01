@@ -60,12 +60,12 @@ spec:
           value: "1000"
         - name: PLEX_GID
           value: "1000"
+        - name: PLEX_PREFERENCE_1
+          value: "disableIPv6=1"
         - name: NVIDIA_VISIBLE_DEVICES
           value: "all"
         - name: NVIDIA_DRIVER_CAPABILITIES
           value: "compute,video,utility"
-        - name: PLEX_PREFERENCE_1
-          value: "disableIPv6=1"
         resources:
           limits:
             nvidia.com/gpu: "1"

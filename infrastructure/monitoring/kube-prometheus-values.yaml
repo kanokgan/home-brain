@@ -5,12 +5,24 @@
 grafana:
   adminPassword: "admin"  # Change this!
   
+  # Set timezone to Thailand (UTC+7)
+  env:
+    TZ: Asia/Bangkok
+  
+  # Disable problematic init container (data already exists)
+  initChownData:
+    enabled: false
+  
   # Grafana configuration
   grafana.ini:
     server:
       domain: monitoring.dove-komodo.ts.net
       root_url: https://monitoring.dove-komodo.ts.net
       serve_from_sub_path: false
+    
+    # Timezone configuration for Thailand (UTC+7)
+    date_formats:
+      default_timezone: Asia/Bangkok
     
     # Allow embedding in iframes (useful for dashboards)
     security:
